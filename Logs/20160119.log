@@ -1,0 +1,58 @@
+0	11:25:52.755	Compiling 'MACD Sample'
+0	11:25:52.756	Compiling 'Moving Average'
+0	11:25:54.608	Compiling 'Accelerator'
+0	11:25:54.608	Compiling 'Accumulation'
+0	11:25:54.608	Compiling 'Alligator'
+0	11:25:54.608	Compiling 'ATR'
+0	11:25:54.608	Compiling 'Awesome'
+0	11:25:54.608	Compiling 'Bands'
+0	11:25:54.608	Compiling 'Bears'
+0	11:25:54.608	Compiling 'Bulls'
+0	11:25:54.608	Compiling 'CCI'
+0	11:25:54.608	Compiling 'Custom Moving Averages'
+0	11:25:54.608	Compiling 'Heiken Ashi'
+0	11:25:54.608	Compiling 'Ichimoku'
+0	11:25:54.608	Compiling 'iExposure'
+0	11:25:54.608	Compiling 'MACD'
+0	11:25:54.608	Compiling 'Momentum'
+0	11:25:54.608	Compiling 'OsMA'
+0	11:25:54.608	Compiling 'Parabolic'
+0	11:25:54.608	Compiling 'RSI'
+0	11:25:54.608	Compiling 'Stochastic'
+0	11:25:54.608	Compiling 'ZigZag'
+0	11:25:54.608	Compiling 'SimplePanel'
+0	11:26:00.953	Compiling 'PeriodConverter'
+0	11:26:00.953	Compiling 'DLLSampleTester'
+0	11:26:00.953	Compiling 'PipeClient'
+0	11:26:00.953	Compiling 'PipeClientPure'
+0	11:26:03.329	Compiling 'stdlib'
+0	11:30:19.848	Script Examples\DLL\DLLSampleTester EURUSD,H4: loaded successfully
+0	11:30:22.879	Script DLLSampleTester EURUSD,H4: removed
+0	12:50:15.452	Custom indicator Heiken Ashi EURUSD,H4: loaded successfully
+0	12:50:25.545	Heiken Ashi EURUSD,H4: initialized
+0	12:50:45.587	Custom indicator Heiken Ashi EURUSD,H4: loaded successfully
+0	12:51:10.292	Heiken Ashi EURUSD,H4: initialized
+0	13:49:27.065	Heiken Ashi EURUSD,H4: uninit reason 3
+0	13:49:27.065	Heiken Ashi EURUSD,H4: uninit reason 3
+0	13:49:27.065	Heiken Ashi EURUSD,Monthly: initialized
+0	13:49:27.065	Heiken Ashi EURUSD,Monthly: initialized
+0	13:55:59.018	Heiken Ashi EURUSD,Monthly: uninit reason 9
+0	13:55:59.018	Heiken Ashi EURUSD,Monthly: uninit reason 9
+0	13:55:59.065	Custom indicator Heiken Ashi EURUSD,Monthly: removed
+0	13:55:59.067	Custom indicator Heiken Ashi EURUSD,Monthly: removed
+0	13:56:53.252	Custom indicator Heiken Ashi EURUSD,Monthly: loaded successfully
+0	13:56:53.260	Custom indicator Heiken Ashi EURUSD,Monthly: loaded successfully
+0	13:56:53.273	Heiken Ashi EURUSD,Monthly: initialized
+0	13:56:53.281	Heiken Ashi EURUSD,Monthly: initialized
+0	13:56:56.882	Heiken Ashi EURUSD,Monthly: uninit reason 9
+0	13:56:56.882	Heiken Ashi EURUSD,Monthly: uninit reason 9
+0	13:56:56.925	Custom indicator Heiken Ashi EURUSD,Monthly: removed
+0	13:56:56.926	Custom indicator Heiken Ashi EURUSD,Monthly: removed
+0	13:57:32.251	Custom indicator Heiken Ashi EURUSD,Monthly: loaded successfully
+0	13:57:32.259	Custom indicator Heiken Ashi EURUSD,Monthly: loaded successfully
+0	13:57:32.267	Heiken Ashi EURUSD,Monthly: initialized
+0	13:57:32.275	Heiken Ashi EURUSD,Monthly: initialized
+0	13:58:30.494	Heiken Ashi EURUSD,Monthly: uninit reason 9
+0	13:58:30.494	Heiken Ashi EURUSD,Monthly: uninit reason 9
+0	13:58:30.526	Custom indicator Heiken Ashi EURUSD,Monthly: removed
+0	13:58:30.526	Custom indicator Heiken Ashi EURUSD,Monthly: removed
