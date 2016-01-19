@@ -1,0 +1,6 @@
+# ignore executables:
+
+*.ex4
+
+# Ignore mqlcache.dat:
+Experts/mqlcache.dat
