@@ -56,3 +56,20 @@
 0	13:58:30.494	Heiken Ashi EURUSD,Monthly: uninit reason 9
 0	13:58:30.526	Custom indicator Heiken Ashi EURUSD,Monthly: removed
 0	13:58:30.526	Custom indicator Heiken Ashi EURUSD,Monthly: removed
+0	22:31:21.658	Compiling 'MACD Sample'
+0	22:31:21.658	Compiling 'Moving Average'
+0	22:31:22.908	Compiling 'Accelerator'
+0	22:31:22.908	Compiling 'Alligator'
+0	22:31:22.908	Compiling 'ATR'
+0	22:31:22.909	Compiling 'Awesome'
+0	22:31:22.909	Compiling 'Bulls'
+0	22:31:22.909	Compiling 'Custom Moving Averages'
+0	22:31:22.909	Compiling 'Ichimoku'
+0	22:31:22.909	Compiling 'MACD'
+0	22:31:22.909	Compiling 'OsMA'
+0	22:31:22.909	Compiling 'Parabolic'
+0	22:31:22.909	Compiling 'Stochastic'
+0	22:31:22.910	Compiling 'ZigZag'
+0	22:31:22.910	Compiling 'SimplePanel'
+0	22:31:26.021	Compiling 'DLLSampleTester'
+0	22:31:26.021	Compiling 'PipeClientPure'
