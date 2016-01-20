@@ -44,9 +44,8 @@
 
 #include <nerv/core/Object.mqh>
 #include <nerv/core/StringStream.mqh>
-// #include <nerv/core/Log.mqh>
-// #include <nerv/core/ObjectMap.mqh>
-// #include <nerv/core/ExceptionCatcher.mqh>
+#include <nerv/core/Log.mqh>
+#include <nerv/core/ExceptionCatcher.mqh>
 
 #import "shell32.dll"
 int ShellExecuteW(int hwnd,string Operation,string File,string Parameters,string Directory,int ShowCmd);
