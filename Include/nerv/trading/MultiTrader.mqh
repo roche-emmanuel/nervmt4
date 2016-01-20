@@ -1,4 +1,5 @@
 #include <nerv/core.mqh>
+#include <nerv/utils.mqh>
 
 #include <nerv/trading/SecurityTrader.mqh>
 
@@ -12,29 +13,18 @@ class nvMultiTrader : public nvObject
 protected:
   nvSecurityTrader* _traders[];
 
+  datetime _lastUpdate;
+  int _updateDelay;
+
 public:
   /*
     Class constructor.
   */
-  nvMultiTrader()
+  nvMultiTrader(ENUM_TIMEFRAMES period)
   {
-    logDEBUG("Creating new Multi Trader")
-  }
-
-  /*
-    Copy constructor
-  */
-  nvMultiTrader(const nvMultiTrader& rhs)
-  {
-    this = rhs;
-  }
-
-  /*
-    assignment operator
-  */
-  void operator=(const nvMultiTrader& rhs)
-  {
-    THROW("No copy assignment.")
+    logDEBUG("Creating new Multi Trader with time frame " << EnumToString(period))
+    _lastUpdate = 0;
+    _updateDelay = nvGetPeriodDuration(period);
   }
 
   /*
@@ -58,7 +48,7 @@ public:
   */
   nvSecurityTrader* addTrader(nvSecurityTrader* trader)
   {
-    //nvAppendArrayElement(_traders,trader);
+    nvAppendArrayElement(_traders,trader);
     return trader;
   }
   
@@ -68,8 +58,18 @@ public:
   Method called to update the state of this trader 
   normally once per minute
   */
-  void update(datetime ctime)
+  void update()
   {
+    // Only perform an update if the update delay is passed:
+    datetime ctime = TimeCurrent();
+    if((ctime-_lastUpdate)<_updateDelay)
+    {
+      return;
+    }
+
+    // perform the update:
+    _lastUpdate = ctime;
+
     int len = ArraySize( _traders );
     for(int i = 0;i<len;++i)
     {

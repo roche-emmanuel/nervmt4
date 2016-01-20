@@ -54,6 +54,12 @@ public:
     logDEBUG("Deleting SecurityTrader")
   }
 
+  int openPosition(int otype, double lot, double sl = 0.0, 
+    double tp = 0.0, double price = 0.0)
+  {
+    return nvOpenPosition(_symbol,otype,lot,sl,tp,price);
+  }
+
   /*
   Function: update
   

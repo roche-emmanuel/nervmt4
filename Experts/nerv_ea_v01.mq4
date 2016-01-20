@@ -13,6 +13,7 @@ and then use those predictions to place orders.
 #include <stdlib.mqh>
 #include <nerv/core.mqh>
 #include <nerv/trading/MultiTrader.mqh>
+#include <nerv/trading/RandomTrader.mqh>
 
 // #define USE_TIMER
 
@@ -20,7 +21,7 @@ and then use those predictions to place orders.
 input int   gTimerPeriod=1;  // Timer period in seconds
 #endif
 
-// nvMultiTrader* mtrader = NULL;
+nvMultiTrader* mtrader = NULL;
 
 // Initialization method:
 int OnInit()
@@ -31,6 +32,11 @@ int OnInit()
   string fname = "nerv_ea_v01.log";
   nvFileLogger* logger = new nvFileLogger(fname);
   lm.addSink(logger);
+
+  mtrader = new nvMultiTrader((ENUM_TIMEFRAMES)Period());
+
+  // add a random trader:
+  mtrader.addTrader(new nvRandomTrader("EURUSD"));
 
 #ifdef USE_TIMER
   // Initialize the timer:
@@ -48,17 +54,17 @@ void OnDeinit(const int reason)
   EventKillTimer();
 #endif
 
-  // // Destroy the trader:
-  // RELEASE_PTR(mtrader);
+  // Destroy the trader:
+  RELEASE_PTR(mtrader);
 }
 
 // OnTick handler:
 void OnTick()
 {
-
+  mtrader.onTick();
 }
 
 void OnTimer()
 {
-  logDEBUG(TimeCurrent() << ": In Timer")
+  mtrader.update();
 }
