@@ -10,8 +10,9 @@ and then use those predictions to place orders.
 
 #property version   "1.00"
 
-#include <nerv/core.mqh>
 #include <stdlib.mqh>
+#include <nerv/core.mqh>
+#include <nerv/trading/MultiTrader.mqh>
 
 // #define USE_TIMER
 

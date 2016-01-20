@@ -12,27 +12,23 @@
 
 #define __WITH_POINTER_EXCEPTION__
 
+void throwMessage(string msg)
+{
+  nvExceptionCatcher* ec = nvExceptionCatcher::instance();
+  ec.setLastError(msg);
+  if (!ec.isEnabled()) {
 #ifdef __WITH_POINTER_EXCEPTION__
-#define THROW(msg) { nvStringStream __ss__; \
-    __ss__ << msg; \
-    nvExceptionCatcher* ec = nvExceptionCatcher::instance(); \
-    ec.setLastError(__ss__.str()); \
-    if (!ec.isEnabled()) { \
-      CObject* obj = NULL; \
-      obj.Next(); \            
-    } \
-  }
+    CObject* obj = NULL;
+    obj.Next();
 #else
+    ExpertRemove();
+#endif
+  }
+}
+
 #define THROW(msg) { nvStringStream __ss__; \
     __ss__ << msg; \
-    nvExceptionCatcher* ec = nvExceptionCatcher::instance(); \
-    ec.setLastError(__ss__.str()); \
-    if (!ec.isEnabled()) { \      
-      ExpertRemove(); \
-      return; \
-    } \
-  }
-#endif
+    throwMessage(__ss__.str()); }
 
 #define CHECK(val,msg) if(!(val)) { THROW(__FILE__ << "(" << __LINE__ <<"): " << msg); return; }
 #define CHECK_RET(val,ret,msg) if(!(val)) { THROW(__FILE__ << "(" << __LINE__ <<"): " << msg); return ret;}
