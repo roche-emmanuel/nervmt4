@@ -60,6 +60,11 @@ public:
     return nvOpenPosition(_symbol,otype,lot,sl,tp,price);
   }
 
+  bool closePosition(int ticket, double lot=0.0,double price = 0.0, int slippage = 0)
+  {
+    return nvClosePosition(ticket,lot,price,slippage);
+  }
+
   /*
   Function: update
   

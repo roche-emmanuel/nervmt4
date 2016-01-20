@@ -100,3 +100,50 @@ int nvOpenPosition(string symbol, int otype, double lot,
 
   return ticket;
 }
+
+// Retrieve the tiket order type:
+int nvGetPositionType(int ticket)
+{
+  if(OrderSelect(ticket,SELECT_BY_TICKET))
+  {
+    return OrderType();
+  }
+
+  return -1;
+}
+
+// Method used to close an order:
+bool nvClosePosition(int ticket, double lot = 0.0, double price = 0.0, int slippage = 0)
+{
+  if(!OrderSelect(ticket,SELECT_BY_TICKET))
+  {
+    logDEBUG("Cannot close ticket "<<ticket)
+    return false;
+  }
+
+  if(lot == 0.0)
+  {
+    lot = OrderLots();
+  }
+
+  if(price == 0.0)
+  {
+    int otype = OrderType();
+    string symbol = OrderSymbol();
+    price = otype==OP_BUY ? nvGetBid(symbol) : nvGetAsk(symbol);    
+  }
+
+  bool res = OrderClose(ticket,lot,price,slippage,Red);
+  if(!res)
+  {
+    int errno = GetLastError();
+    logERROR("ClosePosition produced error code: "<<errno<<"("<<ErrorDescription(errno)<<")");    
+  }
+  return res;
+}
+
+// Retrieve the point size for a given symbol:
+double nvGetPointSize(string symbol)
+{
+  return SymbolInfoDouble(symbol,SYMBOL_POINT);
+}

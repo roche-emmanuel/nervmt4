@@ -1,26 +1,27 @@
 #include <nerv/core.mqh>
 #include <nerv/trading/SecurityTrader.mqh>
+#include <nerv/trading/ALRBasket.mqh>
 #include <nerv/math/SimpleRNG.mqh>
 
 /*
-Class: nvRandomTrader
+Class: nvRandomALRTrader
 
 Base class representing a trader 
 */
-class nvRandomTrader : public nvSecurityTrader {
+class nvRandomALRTrader : public nvSecurityTrader {
 protected:
   int _ticket;
 
+  nvALRBasket* _basket;
+
   // Random generator:
   SimpleRNG rnd;
-  datetime _lastTime;
-  int _delay;
 
 public:
   /*
     Class constructor.
   */
-  nvRandomTrader(string symbol)
+  nvRandomALRTrader(string symbol)
     : nvSecurityTrader(symbol)
   {
     logDEBUG("Creating RandomTrader")
@@ -29,16 +30,16 @@ public:
     // rnd.SetSeedFromSystemTime();
     rnd.SetSeed(123);
 
-    _lastTime = 0;
-    _delay = 120 + 3600*rnd.GetUniform();
+    _basket = new nvALRBasket(_symbol);
   }
 
   /*
     Class destructor.
   */
-  ~nvRandomTrader()
+  ~nvRandomALRTrader()
   {
     logDEBUG("Deleting RandomTrader")
+    RELEASE_PTR(_basket);
   }
 
   virtual void update(datetime ctime)
@@ -48,21 +49,16 @@ public:
   
   virtual void onTick()
   {
-    datetime ctime = TimeCurrent();
-    if((ctime-_lastTime)<_delay)
-      return;
-
-    _delay = 120 + 3600*rnd.GetUniform();
-    _lastTime = ctime;
-
-    // Close th current position if any:
-    if(_ticket>=0)
+    _basket.update();
+    
+    if(_basket.isRunning())
     {
-      closePosition(_ticket);
+      // Wait for the basket to complete:
+      return;
     }
 
     // if we are not in a position, we open a new one randomly:
     int otype = (rnd.GetUniform()-0.5) > 0 ? OP_BUY : OP_SELL;
-    _ticket = openPosition(otype,0.01);
+    _basket.enter(otype,0.1);
   }
 };
