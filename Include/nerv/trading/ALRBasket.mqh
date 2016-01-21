@@ -31,6 +31,9 @@ protected:
 
   int _currentSide;
 
+  int _warningLevel;
+  int _numBounce;
+
 public:
   /*
     Class constructor.
@@ -44,8 +47,10 @@ public:
     setZoneWidth(500.0*psize);
     setBreakEvenWidth(3.0*500.0*psize);
     setProfitWidth(100.0*psize);
+    setWarningLevel(-1);
 
     _currentSide = -1;
+    _numBounce = 0;
     _zoneLow = 0.0;
     _zoneHigh = 0.0;
     _stopLoss = 0.0;
@@ -59,6 +64,12 @@ public:
     logDEBUG("Deleting ALRBasket")
   }
   
+  // Set Warning level:
+  void setWarningLevel(int level)
+  {
+    _warningLevel = level;
+  }
+
   // Set the zone width in price delta
   void setZoneWidth(double width)
   {
@@ -83,7 +94,19 @@ public:
   */
   bool isRunning()
   {
-    return ArraySize(_tickets)>0;
+    return getNumPosition()>0;
+  }
+
+  // Retrieve the number of positions in this basket:
+  int getNumPosition()
+  {
+    return ArraySize(_tickets);
+  }
+
+  // Retrieve the number of bounce for this basket
+  int getNumBounce()
+  {
+    return _numBounce;
   }
 
   /*
@@ -92,7 +115,10 @@ public:
   */
   void enter(int otype, double lot)
   {
+    CHECK(!isRunning(),"Cannot enter a running basket.")
+
     _stopLoss = 0.0;
+    _numBounce = 0;
 
     if(otype==OP_BUY) 
     {
@@ -117,8 +143,18 @@ public:
 
     // Check what is the position of the bid:
     double bid = nvGetBid(_symbol);
+
+    double profit = getCurrentProfit();
+
     if(_currentSide==OP_BUY)
     {
+      if(_warningLevel>0 && _numBounce>=_warningLevel 
+         && bid > (_zoneHigh + _breakEvenWidth) && profit>0.0)
+      {
+        close();
+        return;
+      }
+
       if(_stopLoss == 0.0 && bid > (_zoneHigh + _breakEvenWidth + _profitWidth))
       {
         // Initialize the stop loss:
@@ -131,6 +167,7 @@ public:
         if(bid<=_stopLoss) {
           // close this basket:
           close();
+          return;
         }
         else {
           // check if we should update the stop loss:
@@ -147,6 +184,13 @@ public:
     }
     else 
     {
+      if(_warningLevel>0 && _numBounce>=_warningLevel 
+         && bid < (_zoneHigh - _breakEvenWidth) && profit>0.0)
+      {
+        close();
+        return;
+      }
+
       if(_stopLoss == 0.0 && bid < (_zoneLow - _breakEvenWidth - _profitWidth))
       {
         // Initialize the stop loss:
@@ -159,6 +203,7 @@ public:
         if(bid>=_stopLoss) {
           // close this basket:
           close();
+          return;
         }
         else {
           // check if we should update the stop loss:
@@ -177,7 +222,7 @@ public:
 
   // Close all the current positions
   void close()
-  {
+  {    
     int len = ArraySize(_tickets);
     logDEBUG("Closing basked of "<<len<<" positions.")
     
@@ -221,7 +266,13 @@ protected:
         }
         else
         {
-          result += OrderLots()*(OrderOpenPrice() - target);
+          // When selling we have the also take into account the current
+          // spread: The open price was the bid price, but then
+          // We buy at the ask price, which we can estimate with the current 
+          // mean spread.
+          // For the moment we simply use the instant spread:
+          double spread = nvGetSpread(_symbol);
+          result += OrderLots()*(OrderOpenPrice() - target - spread) ;
         }
       }
     }
@@ -295,7 +346,7 @@ protected:
       if(range <= 0)
       {
         logWARN("Perform zone relocation for BUY.")
-        
+
         // We can try to relocate the zone so that the current bid price 
         // would correspond to the new zoneHigh:
         _zoneHigh = nvGetBid(_symbol);
@@ -344,6 +395,8 @@ protected:
     int ticket = nvOpenPosition(_symbol,otype,lot);
     CHECK_RET(ticket>=0,-1,"Invalid ticket for ALRBasket")
     nvAppendArrayElement(_tickets,ticket);
+
+    _numBounce++;
 
     int len = ArraySize(_tickets);
     logDEBUG("Opened basked position " << len<< " with "<<lot<<" lots.")

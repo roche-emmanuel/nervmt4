@@ -64,6 +64,13 @@ double nvGetAsk(string symbol)
   return tick.ask;
 }
 
+double nvGetSpread(string symbol)
+{
+  MqlTick tick;
+  CHECK_RET(SymbolInfoTick(symbol,tick),0.0,"Cannot retrieve latest tick for symbol "<<symbol)
+  return tick.ask-tick.bid;
+}
+
 // Method called to normalize a lot size given its symbol.
 double nvNormalizeVolume(double lot, string symbol)
 {
