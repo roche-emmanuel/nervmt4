@@ -32,6 +32,8 @@ protected:
   int _currentSide;
 
   int _warningLevel;
+  int _stopLevel;
+
   int _numBounce;
 
 public:
@@ -47,7 +49,8 @@ public:
     setZoneWidth(500.0*psize);
     setBreakEvenWidth(3.0*500.0*psize);
     setProfitWidth(100.0*psize);
-    setWarningLevel(-1);
+    setWarningLevel(15);
+    setStopLevel(-1);
 
     _currentSide = -1;
     _numBounce = 0;
@@ -68,6 +71,12 @@ public:
   void setWarningLevel(int level)
   {
     _warningLevel = level;
+  }
+
+  // Set the stop level for this basket:
+  void setStopLevel(int level)
+  {
+    _stopLevel = level;
   }
 
   // Set the zone width in price delta
@@ -155,6 +164,12 @@ public:
         return;
       }
 
+      if(_stopLoss == 0.0 && _stopLevel>0 && _numBounce>=_stopLevel)
+      {
+        // Initialize the stop loss:
+        _stopLoss = bid - _trail;
+      }
+
       if(_stopLoss == 0.0 && bid > (_zoneHigh + _breakEvenWidth + _profitWidth))
       {
         // Initialize the stop loss:
@@ -189,6 +204,12 @@ public:
       {
         close();
         return;
+      }
+
+      if(_stopLoss == 0.0 && _stopLevel>0 && _numBounce>=_stopLevel)
+      {
+        // Initialize the stop loss:
+        _stopLoss = bid + _trail;
       }
 
       if(_stopLoss == 0.0 && bid < (_zoneLow - _breakEvenWidth - _profitWidth))
