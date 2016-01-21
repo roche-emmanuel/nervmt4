@@ -234,20 +234,42 @@ protected:
   {
     // Compute the long and short values:
     double lot = 0.0;
-    double target, np;
+    double target, np, range;
     
     if(_currentSide==OP_BUY)
     {
       // We are about to go short now
       // So the breakEven price will be:
       target = _zoneLow-_breakEvenWidth;
+      range = nvGetAsk(_symbol) - target;
+
+      // it could happen that we are jumping out of the recovery band
+      // sometimes (during the weekends!)
+      // And in that case the profit might still be negative while the range
+      // would also be negative...
+      if(range <= 0)
+      {
+        logWARN("Perform zone relocation for SELL.")
+
+        // We can try to relocate the zone so that the current bid price 
+        // would correspond to the new zoneLow:
+        _zoneLow = nvGetBid(_symbol);
+        _zoneHigh = _zoneLow + _zoneWidth;
+
+        // Recompute target and range:
+        target = _zoneLow-_breakEvenWidth;
+        range = nvGetAsk(_symbol) - target;
+      }
+
+      CHECK_RET(range>0.0,0.0,"Detected invalid SELL range: "<<range);
+
       np = getPointProfit(target);
 
       // Now compute what is missing to break even:
       CHECK_RET(np <= 0,0.0,"Point profit was positive : "<<np);
 
       // lot = np/(nvGetBid(_symbol) - target + spread)
-      lot = -np/(nvGetAsk(_symbol) - target);
+      lot = -np/range;
 
       // So check how much we will loose because of the long lots:
       // lost = _longLots * (_zoneWidth+_breakEvenWidth);
@@ -264,14 +286,39 @@ protected:
       // We are about to go long now
       // So the breakEven price will be:
       target = _zoneHigh+_breakEvenWidth;
-      np = getPointProfit(target);
+      range = target - nvGetAsk(_symbol);
 
+      // it could happen that we are jumping out of the recovery band
+      // sometimes (during the weekends!)
+      // And in that case the profit might still be negative while the range
+      // would also be negative...
+      if(range <= 0)
+      {
+        logWARN("Perform zone relocation for BUY.")
+        
+        // We can try to relocate the zone so that the current bid price 
+        // would correspond to the new zoneHigh:
+        _zoneHigh = nvGetBid(_symbol);
+        _zoneLow = _zoneHigh - _zoneWidth;
+
+        // Recompute target and range:
+        target = _zoneHigh+_breakEvenWidth;
+        range = target - nvGetAsk(_symbol);
+      }
+      CHECK_RET(range>0.0,0.0,"Detected invalid BUY range: "<<range
+        <<", target="<<target
+        <<", ask="<<nvGetAsk(_symbol)
+        <<", bid="<<nvGetBid(_symbol));
+
+      // Now compute the point profit :
+      np = getPointProfit(target);
       // Now compute what is missing to break even:
       CHECK_RET(np <= 0,0.0,"Point profit was positive : "<<np);
 
+
       // lot = np/(target - spread - nvGetBid(_symbol));
       // lot = np/(target - (Ask - Bid) - nvGetBid(_symbol));
-      lot = -np/(target - nvGetAsk(_symbol));
+      lot = -np/range;
 
       // We are going to be long, so we compute the lost due to the short lots:
       // lost = _shortLots * (_zoneWidth + _breakEvenWidth);
