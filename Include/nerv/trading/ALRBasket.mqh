@@ -145,6 +145,102 @@ public:
     openPosition(otype,lot);
   }
 
+  void updateLongState(double bid, double profit)
+  {
+    if(_warningLevel>0 && _numBounce>=_warningLevel 
+       && bid > (_zoneHigh + _breakEvenWidth) && profit>0.0)
+    {
+      close();
+      return;
+    }
+
+    if(_stopLoss == 0.0)
+    {
+      if((_stopLevel>0 && _numBounce>=_stopLevel)
+         || (bid > (_zoneHigh + _breakEvenWidth + _profitWidth))
+         || (_numBounce==1 && profit>0.0 && bid > (_zoneHigh+_profitWidth)))
+      {
+        // Initialize the stop loss:
+        _stopLoss = bid - _trail;      
+      }
+    }
+
+    // check if we already have a stop lost:
+    if(_stopLoss>0.0)
+    {
+      if(bid<=_stopLoss) {
+        // close this basket:
+        close();
+        return;
+      }
+      else {
+        // check if we should update the stop loss:
+        _stopLoss = MathMax(_stopLoss,bid - _trail);
+      }
+    }
+
+    // We also need to check if we are going under the zone:
+    if(bid<=_zoneLow)
+    {
+      // flip the current side!
+      openPosition(OP_SELL,getNextLotSize());
+    }
+  }
+
+  void updateShortState(double bid, double profit)
+  {
+    if(_warningLevel>0 && _numBounce>=_warningLevel 
+       && bid < (_zoneHigh - _breakEvenWidth) && profit>0.0)
+    {
+      close();
+      return;
+    }
+
+    if(_stopLoss == 0.0)
+    {
+      if((_stopLevel>0 && _numBounce>=_stopLevel)
+         || (bid < (_zoneLow - _breakEvenWidth - _profitWidth))
+         || (_numBounce==1 && profit>0.0 && bid < (_zoneLow-_profitWidth)))
+      {
+        // Initialize the stop loss:
+        _stopLoss = bid + _trail; 
+      }
+    }
+
+    if(_stopLoss == 0.0 && _stopLevel>0 && _numBounce>=_stopLevel)
+    {
+      // Initialize the stop loss:
+      _stopLoss = bid + _trail;
+    }
+
+    if(_stopLoss == 0.0 && bid < (_zoneLow - _breakEvenWidth - _profitWidth))
+    {
+      // Initialize the stop loss:
+      _stopLoss = bid + _trail;
+    }
+
+    // check if we already have a stop lost:
+    if(_stopLoss>0.0)
+    {
+      if(bid>=_stopLoss) {
+        // close this basket:
+        close();
+        return;
+      }
+      else {
+        // check if we should update the stop loss:
+        _stopLoss = MathMin(_stopLoss,bid + _trail);
+      }
+    }
+
+    // We also need to check if we are going under the zone:
+    if(bid>=_zoneHigh)
+    {
+      // flip the current side!
+      openPosition(OP_BUY,getNextLotSize());
+    }
+  }
+
   virtual void update()
   {
     if(!isRunning())
@@ -157,87 +253,11 @@ public:
 
     if(_currentSide==OP_BUY)
     {
-      if(_warningLevel>0 && _numBounce>=_warningLevel 
-         && bid > (_zoneHigh + _breakEvenWidth) && profit>0.0)
-      {
-        close();
-        return;
-      }
-
-      if(_stopLoss == 0.0 && _stopLevel>0 && _numBounce>=_stopLevel)
-      {
-        // Initialize the stop loss:
-        _stopLoss = bid - _trail;
-      }
-
-      if(_stopLoss == 0.0 && bid > (_zoneHigh + _breakEvenWidth + _profitWidth))
-      {
-        // Initialize the stop loss:
-        _stopLoss = bid - _trail;
-      }
-
-      // check if we already have a stop lost:
-      if(_stopLoss>0.0)
-      {
-        if(bid<=_stopLoss) {
-          // close this basket:
-          close();
-          return;
-        }
-        else {
-          // check if we should update the stop loss:
-          _stopLoss = MathMax(_stopLoss,bid - _trail);
-        }
-      }
-
-      // We also need to check if we are going under the zone:
-      if(bid<=_zoneLow)
-      {
-        // flip the current side!
-        openPosition(OP_SELL,getNextLotSize());
-      }
+      updateLongState(bid,profit);
     }
     else 
     {
-      if(_warningLevel>0 && _numBounce>=_warningLevel 
-         && bid < (_zoneHigh - _breakEvenWidth) && profit>0.0)
-      {
-        close();
-        return;
-      }
-
-      if(_stopLoss == 0.0 && _stopLevel>0 && _numBounce>=_stopLevel)
-      {
-        // Initialize the stop loss:
-        _stopLoss = bid + _trail;
-      }
-
-      if(_stopLoss == 0.0 && bid < (_zoneLow - _breakEvenWidth - _profitWidth))
-      {
-        // Initialize the stop loss:
-        _stopLoss = bid + _trail;
-      }
-
-      // check if we already have a stop lost:
-      if(_stopLoss>0.0)
-      {
-        if(bid>=_stopLoss) {
-          // close this basket:
-          close();
-          return;
-        }
-        else {
-          // check if we should update the stop loss:
-          _stopLoss = MathMin(_stopLoss,bid + _trail);
-        }
-      }
-
-      // We also need to check if we are going under the zone:
-      if(bid>=_zoneHigh)
-      {
-        // flip the current side!
-        openPosition(OP_BUY,getNextLotSize());
-      }
+      updateShortState(bid,profit);
     }
   }
 
