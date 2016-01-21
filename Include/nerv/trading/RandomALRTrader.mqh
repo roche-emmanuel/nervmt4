@@ -17,6 +17,8 @@ protected:
   // Random generator:
   SimpleRNG rnd;
 
+  double _initialBalance;
+
 public:
   /*
     Class constructor.
@@ -31,6 +33,8 @@ public:
     rnd.SetSeed(123);
 
     _basket = new nvALRBasket(_symbol);
+
+    _initialBalance = nvGetBalance();
   }
 
   /*
@@ -59,6 +63,8 @@ public:
 
     // if we are not in a position, we open a new one randomly:
     int otype = (rnd.GetUniform()-0.5) > 0 ? OP_BUY : OP_SELL;
-    _basket.enter(otype,0.1);
+    
+    double lot = 0.02; //MathMin(0.1,0.02*nvGetBalance()/_initialBalance);
+    _basket.enter(otype,lot);
   }
 };

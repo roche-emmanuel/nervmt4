@@ -36,8 +36,8 @@ public:
     : _symbol(symbol)
   {
     logDEBUG("Creating ALRBasket")
-    setZoneWidth(350.0);
-    setBreakEvenWidth(3.0*350.0);
+    setZoneWidth(500.0);
+    setBreakEvenWidth(3.0*500.0);
     setProfitWidth(100.0);
     _currentSide = -1;
     _zoneLow = 0.0;

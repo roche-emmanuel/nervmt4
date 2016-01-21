@@ -147,3 +147,16 @@ double nvGetPointSize(string symbol)
 {
   return SymbolInfoDouble(symbol,SYMBOL_POINT);
 }
+
+double nvGetBalance()
+{      
+  double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+  return balance;    
+}
+
+// Retrieve the balance value in a given currency:
+double nvGetEquity()
+{
+  double balance = AccountInfoDouble(ACCOUNT_EQUITY);
+  return balance;    
+}
