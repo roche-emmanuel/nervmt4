@@ -112,6 +112,17 @@ int nvGetPositionType(int ticket)
   return -1;
 }
 
+// Retrieve the ticket profit:
+double nvGetPositionProfit(int ticket)
+{
+  if(OrderSelect(ticket,SELECT_BY_TICKET))
+  {
+    return OrderProfit();
+  }
+
+  return 0.0;
+}
+
 // Method used to close an order:
 bool nvClosePosition(int ticket, double lot = 0.0, double price = 0.0, int slippage = 0)
 {

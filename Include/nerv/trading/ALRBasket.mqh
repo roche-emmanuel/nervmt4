@@ -21,8 +21,11 @@ protected:
   double _zoneHigh;
   double _zoneLow;
 
-  double _longLots;
-  double _shortLots;
+  double _longLots[];
+  double _longEntries[];
+
+  double _shortLots[];
+  double _shortEntries[];
 
   double _stopLoss;
 
@@ -36,14 +39,15 @@ public:
     : _symbol(symbol)
   {
     logDEBUG("Creating ALRBasket")
-    setZoneWidth(500.0);
-    setBreakEvenWidth(3.0*500.0);
-    setProfitWidth(100.0);
+    double psize = nvGetPointSize(_symbol);
+    
+    setZoneWidth(500.0*psize);
+    setBreakEvenWidth(3.0*500.0*psize);
+    setProfitWidth(100.0*psize);
+
     _currentSide = -1;
     _zoneLow = 0.0;
     _zoneHigh = 0.0;
-    _longLots = 0.0;
-    _shortLots = 0.0;
     _stopLoss = 0.0;
   }
 
@@ -55,22 +59,22 @@ public:
     logDEBUG("Deleting ALRBasket")
   }
   
-  // Set the zone width in number of points
+  // Set the zone width in price delta
   void setZoneWidth(double width)
   {
-    _zoneWidth = width*nvGetPointSize(_symbol);
+    _zoneWidth = width;
   }
 
-  // Set the breakeven width in number of points:
+  // Set the breakeven width in price delta:
   void setBreakEvenWidth(double width)
   {
-    _breakEvenWidth = width*nvGetPointSize(_symbol);
+    _breakEvenWidth = width;
   }
 
-  // Set te profit width in number of points
+  // Set te profit width in price delta
   void setProfitWidth(double width)
   {
-    _profitWidth = width*nvGetPointSize(_symbol);
+    _profitWidth = width;
     _trail = _profitWidth*0.5;
   }
 
@@ -88,8 +92,6 @@ public:
   */
   void enter(int otype, double lot)
   {
-    _longLots = 0.0;
-    _shortLots = 0.0;
     _stopLoss = 0.0;
 
     if(otype==OP_BUY) 
@@ -188,28 +190,89 @@ public:
     ArrayResize(_tickets,0);
   }
 
+  // Method used to retrieve the overall profit of the current positions
+  // in this basket:
+  double getCurrentProfit()
+  {
+    double profit = 0.0;
+    int len = ArraySize(_tickets);
+    for(int i=0;i<len;++i)
+    {
+      profit += nvGetPositionProfit(_tickets[i]);
+    }
+
+    return profit;
+  }
+
 protected:
+  // Compute the lotpoint profit for all opened position
+  // At a given target price:
+  double getPointProfit(double target)
+  {
+    int len = ArraySize(_tickets);
+    double result = 0.0;
+    for(int i=0;i<len;++i)
+    {
+      if(OrderSelect(_tickets[i],SELECT_BY_TICKET))
+      {
+        if(OrderType()==OP_BUY)
+        {
+          result += OrderLots()*(target - OrderOpenPrice());
+        }
+        else
+        {
+          result += OrderLots()*(OrderOpenPrice() - target);
+        }
+      }
+    }
+
+    return result;
+  }
+
   // Compute the appropriate next lot size:
   double getNextLotSize()
   {
     // Compute the long and short values:
     double lot = 0.0;
+    double target, np;
     
     if(_currentSide==OP_BUY)
     {
       // We are about to go short now
+      // So the breakEven price will be:
+      target = _zoneLow-_breakEvenWidth;
+      np = getPointProfit(target);
+
+      // Now compute what is missing to break even:
+      CHECK_RET(np <= 0,0.0,"Point profit was positive : "<<np);
+
+      // lot = np/(nvGetBid(_symbol) - target + spread)
+      lot = -np/(nvGetAsk(_symbol) - target);
+
       // So check how much we will loose because of the long lots:
       // lost = _longLots * (_zoneWidth+_breakEvenWidth);
 
       // How much will we get with the shortLots:
       // double win = (_shortLots + lot) * _breakEvenWidth;
       // we want win == lost on the break even line, thus:
-      // (_shortLots + lot ) = _longLots * (_zonWidth+_breakEvenWidth)/_breakEvenWidth
+      // (_shortLots + lot ) = _longLots * (_zoneWidth+_breakEvenWidth)/_breakEvenWidth
       // and this:
-      lot = _longLots * (_zoneWidth+_breakEvenWidth)/_breakEvenWidth - _shortLots;
+      // lot = _longLots * (_zoneWidth+_breakEvenWidth)/_breakEvenWidth - _shortLots;
     }
     else
     {
+      // We are about to go long now
+      // So the breakEven price will be:
+      target = _zoneHigh+_breakEvenWidth;
+      np = getPointProfit(target);
+
+      // Now compute what is missing to break even:
+      CHECK_RET(np <= 0,0.0,"Point profit was positive : "<<np);
+
+      // lot = np/(target - spread - nvGetBid(_symbol));
+      // lot = np/(target - (Ask - Bid) - nvGetBid(_symbol));
+      lot = -np/(target - nvGetAsk(_symbol));
+
       // We are going to be long, so we compute the lost due to the short lots:
       // lost = _shortLots * (_zoneWidth + _breakEvenWidth);
 
@@ -217,7 +280,7 @@ protected:
       // double win = (_longLots + lot) * _breakEvenWidth;
       // On breakeven we want win == lost, and thus:
       // (_longLots + lot) * _breakEvenWidth = _shortLots * (_zoneWidth + _breakEvenWidth);
-      lot = _shortLots * (_zoneWidth+_breakEvenWidth)/_breakEvenWidth - _longLots;
+      // lot = _shortLots * (_zoneWidth+_breakEvenWidth)/_breakEvenWidth - _longLots;
     }
 
     // We need to round the lot value to a ceil:
@@ -230,15 +293,6 @@ protected:
 
   int openPosition(int otype, double lot)
   {
-    if(otype==OP_BUY) 
-    {
-      _longLots += lot;
-    }
-    else
-    {
-      _shortLots += lot;
-    }
-
     _currentSide = otype;
     int ticket = nvOpenPosition(_symbol,otype,lot);
     CHECK_RET(ticket>=0,-1,"Invalid ticket for ALRBasket")
