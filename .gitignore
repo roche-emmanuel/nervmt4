@@ -4,3 +4,6 @@
 
 # Ignore mqlcache.dat:
 Experts/mqlcache.dat
+
+# ignore log file:
+Logs/*.log

@@ -48,7 +48,7 @@ public:
     
     setZoneWidth(500.0*psize);
     setBreakEvenWidth(3.0*500.0*psize);
-    setProfitWidth(100.0*psize);
+    setProfitWidth(200.0*psize);
     setWarningLevel(15);
     setStopLevel(-1);
 
