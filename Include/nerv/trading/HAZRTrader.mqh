@@ -3,6 +3,7 @@
 #include <nerv/trading/ALRBasket.mqh>
 #include <nerv/trading/HASignal.mqh>
 #include <nerv/trading/MASlopeSignal.mqh>
+#include <nerv/trading/RangeSignal.mqh>
 
 /*
 Class: nvHAZRTrader
@@ -14,20 +15,48 @@ protected:
   nvALRBasket* _basket;
   nvHASignal* _pHA;
   nvMASlopeSignal* _maSlope;
+  nvRangeSignal* _entryRange;
 
+  // list of current open position:
+  int _tickets[];
+  double _stopLoss;
+
+  double _maxRange;
+  double _trail;
+  bool _needAveraging;
+  double _entryPrice;
+  int _averagingCount;
+  double _volatility;
+  double _lotSize;
+
+  ENUM_TIMEFRAMES _atrPeriod;
+  ENUM_TIMEFRAMES _maPeriod;
 public:
   /*
     Class constructor.
   */
   nvHAZRTrader(string symbol, 
     ENUM_TIMEFRAMES phaPeriod = PERIOD_D1,
-    ENUM_TIMEFRAMES maPeriod = PERIOD_H1)
+    ENUM_TIMEFRAMES maPeriod = PERIOD_H1,
+    ENUM_TIMEFRAMES atrPeriod = PERIOD_H4)
     : nvSecurityTrader(symbol)
   {
-    logDEBUG("Creating HAZRTrader")    
+    logDEBUG("Creating HAZRTrader")  
+    _maxRange = 500.0*nvGetPointSize(_symbol);
+    _maPeriod = maPeriod;
+
     _basket = new nvALRBasket(_symbol);
+    _basket.setZoneWidth(_maxRange);
+    _basket.setBreakEvenWidth(3.0*_maxRange);
+    _basket.setProfitWidth(0.5*_maxRange);
+
     _pHA = new nvHASignal(symbol,phaPeriod);
     _maSlope = new nvMASlopeSignal(symbol,maPeriod, 500, 5);
+    _entryRange = new nvRangeSignal(_symbol,10.0);
+
+    _stopLoss = 0.0;
+    _trail = 0.0;
+    _atrPeriod = atrPeriod;
   }
 
   /*
@@ -39,6 +68,7 @@ public:
     RELEASE_PTR(_basket);
     RELEASE_PTR(_pHA);
     RELEASE_PTR(_maSlope);
+    RELEASE_PTR(_entryRange);
   }
 
   virtual void update(datetime ctime)
@@ -68,6 +98,185 @@ public:
     return _maSlope.getSignal();
   }
 
+  // Retrieve the number of open positions:
+  int getNumPositions()
+  {
+    return ArraySize(_tickets);
+  }
+
+  // Check if we current have a position:
+  bool hasPositions()
+  {
+    return getNumPositions()>0;
+  }
+
+  // Check if we are in a long position:
+  bool isLong()
+  {
+    if(hasPositions())
+    {
+      return nvGetPositionType(_tickets[0])==OP_BUY;
+    }
+    return false;
+  }
+
+  // Check if we are in a short position:
+  bool isShort()
+  {
+    if(hasPositions())
+    {
+      return nvGetPositionType(_tickets[0])==OP_SELL;
+    }
+    return false;
+  }
+
+  // Retrieve the current profit for all opened positions:
+  double getCurrentProfit()
+  {
+    double profit = 0.0;
+    int len = ArraySize(_tickets);
+    for(int i=0;i<len;++i)
+    {
+      profit += nvGetPositionProfit(_tickets[i]);
+    }
+
+    return profit;
+  }
+
+  // retrieve the current entry signal:
+  double getEntrySignal()
+  {
+    return _entryRange.getSignal();
+  }
+
+  void startTrailingStop(double trail)
+  {
+    if(_stopLoss>0.0)
+    {
+      return; // already trailing stop.
+    }
+
+    CHECK(hasPositions(),"Cannot start trail stop with no positions.")
+
+    _trail = trail;
+    _stopLoss = nvGetBid(_symbol) + (isLong() ? -_trail : _trail);
+  }
+
+  // Check where the price is compared to the stop loss:
+  void checkTrailingStop()
+  {
+    if(_stopLoss==0.0)
+      return; // nothing to check.
+
+    CHECK(hasPositions(),"Cannot check stop loss with no positions.")
+
+    double bid = nvGetBid(_symbol);
+    if((isLong() && bid<=_stopLoss) || (isShort() && bid>=_stopLoss))
+    {
+      // Close all the current positions:
+      closePositions();
+    }
+    else {
+      double nsl = bid + (isLong() ? -_trail : _trail);
+      if(isLong() && nsl > _stopLoss)
+      {
+        _stopLoss = nsl;
+      }
+      if(isShort() && nsl < _stopLoss)
+      {
+        _stopLoss = nsl;
+      }
+    }
+  }
+
+  void checkLongPositions(double bid, double esig, double profit)
+  {
+    // the entry signal is inverted, and we already have
+    // some positive profit:
+    if(esig < 0.0)
+    {
+      if(profit>0.0)
+      {
+        // In that case we start trailing stop:
+        startTrailingStop(nvGetSpread(_symbol));        
+      }
+      else
+      {
+        // If we are not in profit, then we need to check if we can improve 
+        // our position:
+        _needAveraging = true;
+      }
+    }
+
+    if(esig > 0.0 && _needAveraging && profit <= 0.0
+       && (_entryPrice - bid)> _averagingCount*_volatility/5.0)
+    {
+      performCostAveraging();
+    }
+
+    // Check if we need to enter into recovery mode:
+    if(_entryPrice-bid >= _volatility)
+    {
+      _basket.enter(OP_SELL,_tickets);
+
+      // Now we should remove the current tickets as the
+      // basket will take ownership of these:
+      ArrayResize(_tickets,0);
+    }
+  }
+
+  void checkShortPositions(double bid, double esig, double profit)
+  {
+    // the entry signal is inverted, and we already have
+    // some positive profit:
+    if(esig > 0.0)
+    {
+      if(profit>0.0)
+      {
+        // In that case we start trailing stop:
+        startTrailingStop(nvGetSpread(_symbol));        
+      }
+      else
+      {
+        // If we are not in profit, then we need to check if we can improve 
+        // our position:
+        _needAveraging = true;
+      }
+    }
+
+    if(esig < 0.0 && _needAveraging && profit <= 0.0
+       && (bid - _entryPrice)> _averagingCount*_volatility/5.0)
+    {
+      performCostAveraging();
+    }
+
+    // Check if we need to enter into recovery mode:
+    if(bid-_entryPrice >= _volatility)
+    {
+      _basket.enter(OP_BUY,_tickets);
+
+      // Now we should remove the current tickets as the
+      // basket will take ownership of these:
+      ArrayResize(_tickets,0);
+    }
+  }
+
+  /*
+  Function: getPriceIndication
+  
+  Check what is the current price position with respect to the Moving
+  Average, will return 1.0 if we are above the MA or -1 if we are under it
+  */
+  double getPriceIndication()
+  {
+    double ma = iMA(_symbol,_maPeriod,20,0,MODE_EMA,PRICE_CLOSE,1);
+
+    MqlTick latest_price;
+    CHECK_RET(SymbolInfoTick(_symbol,latest_price),0.0,"Cannot retrieve latest price.")
+
+    return latest_price.bid - ma > 0 ? 1.0 : -1.0;
+  }
+
   virtual void onTick()
   {
     _basket.update();
@@ -78,21 +287,141 @@ public:
       return;
     }
 
-    // Just get the primary direction:
+    // Check the current stop loss status:
+    checkTrailingStop();
+
+    double bid = nvGetBid(_symbol);
+
     double pdir = getPrimaryDirection();
     double trend = getMarketTrend();
-    double lot = 0.02;
+    double esig = getEntrySignal();
+    double pind = getPriceIndication();
 
-    if(pdir>0.0 && trend > 0.3)
+    if(hasPositions())
     {
-      // place a buy order:
-      _basket.enter(OP_BUY,lot);
+      // We already have opened positions,
+      // So we check how we handle them:
+      double profit = getCurrentProfit();
+
+      if(isLong())
+      {
+        // logDEBUG("Checking long positions with bid="<<bid<<", esig="<<esig<<", profit="<<profit)
+        checkLongPositions(bid,esig,profit);
+      }
+      else
+      {
+        // logDEBUG("Checking short positions with bid="<<bid<<", esig="<<esig<<", profit="<<profit)
+        checkShortPositions(bid,esig,profit); 
+      }
     }
+    else
+    {
+      // We are not in a position yet, so check if we should enter:
+      double vol = getVolatilityRange();
+
+      if(pdir>0.0 && trend > 0.3 && pind>0.0 && esig>0.0)
+      {
+        // place a buy order:
+        logDEBUG("Opening Long position with vol="<<vol)
+        openPosition(OP_BUY,vol);
+      }
+      
+      if(pdir<0.0 && trend < -0.3 && pind<0.0 && esig<0.0)
+      {
+        // place a sell order:
+        logDEBUG("Opening short position with vol="<<vol)
+        openPosition(OP_SELL,vol);
+      }
+    }
+  }
+
+protected:
+  
+  /*
+  Function: getVolatilityRange
+  
+  Retrieve the current volatility range value
+  */
+  double getVolatilityRange()
+  {
+    double atr = iATR(_symbol,_atrPeriod,14,1);
+    return MathMin(_maxRange,atr);
+  }
+
+  void openPosition(int otype, double volatility)
+  {
+    double totalLot = evaluateLotSize(volatility/nvGetPointSize(_symbol),1.0);
+    double lot = nvNormalizeVolume(totalLot/5.0,_symbol);
+
+    CHECK(_stopLoss==0.0,"Should not open a position when we have a stop loss set.")
     
-    if(pdir<0.0 && trend < -0.3)
-    {
-      // place a sell order:
-      _basket.enter(OP_SELL,lot);
+    if(lot<0.01) {
+      logDEBUG("Detected too small lot size: "<<lot)
+      lot = 0.01;
     }
+
+    _volatility = volatility;
+    _entryPrice = otype==OP_BUY ? nvGetAsk(_symbol) : nvGetBid(_symbol);
+    _lotSize = lot;
+
+    logDEBUG(TimeCurrent() << ": Entry price: " << _entryPrice)
+
+    // reset averaging count:
+    _averagingCount = 1;
+
+    int ticket = nvOpenPosition(_symbol, otype, lot);
+    CHECK(ticket>=0,"Invalid ticket.")
+    nvAppendArrayElement(_tickets,ticket);
+  }
+
+  // Close all the currently opened positions:
+  void closePositions()
+  {
+    int len = ArraySize(_tickets);
+    for(int i = 0; i<len; ++i)
+    {
+      logDEBUG("Closing ticket "<<_tickets[i])
+      nvClosePosition(_tickets[i]);
+    }
+
+    _stopLoss = 0.0;
+    ArrayResize(_tickets,0);
+  }
+
+  /*
+  Function: evaluateLotSize
+  
+  Main method of this class used to evaluate the lot size that should be used for a potential trade.
+  */
+  double evaluateLotSize(double numLostPoints, double confidence)
+  {
+    return nvEvaluateLotSize(_symbol, numLostPoints, _riskLevel, _traderWeight, confidence);
+  }
+
+  // Perform cost averaging:
+  void performCostAveraging(double added = 0.0)
+  {
+    if(_averagingCount==5) {
+      logDEBUG("Cannot perform dollar cost averaging anymore.")
+      return;
+    }
+
+    CHECK(hasPositions(),"cost averaging with no open position ??")
+
+    _needAveraging = false;
+
+    // increment the averaging count:
+    _averagingCount++;
+
+    logDEBUG(TimeCurrent() << ": Applying dollar cost averaging " << _averagingCount)
+
+    // Add to the currently opened position:
+    int otype = isLong() ? OP_BUY : OP_SELL;
+
+    double lot = nvNormalizeVolume((1.0+added)*_lotSize,_symbol);
+
+    int ticket = nvOpenPosition(_symbol, otype, lot);
+    CHECK(ticket>=0,"Invalid ticket.")
+    nvAppendArrayElement(_tickets,ticket);
   }
 };

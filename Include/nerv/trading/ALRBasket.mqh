@@ -124,7 +124,7 @@ public:
   */
   void enter(int otype, double lot)
   {
-    CHECK(!isRunning(),"Cannot enter a running basket.")
+    CHECK(_numBounce==0.0,"Cannot enter a running basket.")
 
     _stopLoss = 0.0;
     _numBounce = 0;
@@ -143,6 +143,21 @@ public:
     }
 
     openPosition(otype,lot);
+  }
+
+  void enter(int otype, int &tickets[])
+  {
+    int len = ArraySize(tickets);
+    for(int i=0;i<len;++i)
+    {
+      addPosition(tickets[i]);
+    }
+
+    _currentSide = otype == OP_BUY ? OP_SELL : OP_BUY;
+    // Compute the appropriate lot size:
+    double lot = getNextLotSize();
+    logDEBUG("Entering basket with initial lot size="<<lot)
+    enter(otype,lot);
   }
 
   void updateLongState(double bid, double profit)
@@ -274,6 +289,8 @@ public:
     }
 
     ArrayResize(_tickets,0);
+
+    _numBounce = 0;
   }
 
   // Method used to retrieve the overall profit of the current positions
@@ -291,6 +308,13 @@ public:
   }
 
 protected:
+
+  void addPosition(int ticket)
+  {
+    CHECK(ticket>=0,"Invalid ticket for ALRBasket")
+    nvAppendArrayElement(_tickets,ticket);
+  }
+
   // Compute the lotpoint profit for all opened position
   // At a given target price:
   double getPointProfit(double target)
@@ -422,6 +446,8 @@ protected:
       // lot = _shortLots * (_zoneWidth+_breakEvenWidth)/_breakEvenWidth - _longLots;
     }
 
+    logDEBUG("Computed next lot size="<<lot<<", np="<<np<<", range="<<range)
+
     // We need to round the lot value to a ceil:
     double step = SymbolInfoDouble(_symbol,SYMBOL_VOLUME_STEP);
     lot = MathCeil( lot/step ) * step;
@@ -434,8 +460,7 @@ protected:
   {
     _currentSide = otype;
     int ticket = nvOpenPosition(_symbol,otype,lot);
-    CHECK_RET(ticket>=0,-1,"Invalid ticket for ALRBasket")
-    nvAppendArrayElement(_tickets,ticket);
+    addPosition(ticket);
 
     _numBounce++;
 

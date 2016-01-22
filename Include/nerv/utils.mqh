@@ -62,11 +62,84 @@ double nvGetBid(string symbol)
   return tick.bid;
 }
 
+// Retrieve a given bid price:
+double nvGetBidPrice(string symbol, datetime time = 0)
+{
+  // Retrieve the target time from the manager if needed:
+  if(time==0) {
+    time = TimeCurrent();
+  }
+
+  // If the target time happens to be the server time, then this means we can use the latest tick available
+  if(time == TimeCurrent())
+  {
+    // Use the latest tick data:
+    MqlTick last_tick;
+    // Note that the following code may fail if we are on the week end,
+    // And connected to a server, and we didn't receive anything yet:
+    if(SymbolInfoTick(symbol,last_tick)) {
+      return last_tick.bid;
+    }
+    else {
+      logWARN("Cannot retrieve the latest tick from server")
+    }
+  }
+
+  // Fallback implementation:
+  // Use the bar history:
+  MqlRates rates[];
+  CHECK_RET(CopyRates(symbol,PERIOD_M1,time,1,rates)==1,false,"Cannot copy the rates at time: "<<time);
+
+  // For now we just return the typical price during that minute:
+  // Prices definition found on: https://www.mql5.com/en/docs/constants/indicatorconstants/prices
+  // double price = (rates[0].high + rates[0].low + rates[0].close)/3.0;
+
+  double price = (time - rates[0].time) < 30 ? rates[0].open : rates[0].close;
+  return price;      
+}
+
 double nvGetAsk(string symbol)
 {
   MqlTick tick;
   CHECK_RET(SymbolInfoTick(symbol,tick),0.0,"Cannot retrieve latest tick for symbol "<<symbol)
   return tick.ask;
+}
+
+double nvGetAskPrice(string symbol, datetime time = 0)
+{
+  // Retrieve the target time from the manager if needed:
+  if(time==0) {
+    time = TimeCurrent();
+  }
+
+  // If the target time happens to be the server time, then this means we can use the latest tick available
+  if(time == TimeCurrent())
+  {
+    // Use the latest tick data:
+    MqlTick last_tick;
+    // Note that the following code may fail if we are on the week end,
+    // And connected to a server, and we didn't receive anything yet:
+    if(SymbolInfoTick(symbol,last_tick)) {
+      return last_tick.ask;
+    }
+    else {
+      logWARN("Cannot retrieve the latest tick from server")
+    }
+  }
+
+  // Fallback implementation:
+  // Use the bar history:
+  MqlRates rates[];
+  CHECK_RET(CopyRates(symbol,PERIOD_M1,time,1,rates)==1,false,"Cannot copy the rates at time: "<<time);
+
+  // For now we just return the typical price during that minute:
+  // Prices definition found on: https://www.mql5.com/en/docs/constants/indicatorconstants/prices
+  // double price = (rates[0].high + rates[0].low + rates[0].close)/3.0;
+
+  // Instead of returning a typical price we can return the open price if we are close enough to the opening of the bar:
+  // This is a valid approximation as long as we keep working with a resolution of 1 minute:
+  double price = (time - rates[0].time) < 30 ? rates[0].open : rates[0].close;
+  return price+rates[0].spread*nvGetPointSize(symbol);      
 }
 
 double nvGetSpread(string symbol)
@@ -171,9 +244,79 @@ double nvGetPointSize(string symbol)
   return SymbolInfoDouble(symbol,SYMBOL_POINT);
 }
 
-double nvGetBalance()
-{      
+// Check if a given symbol is valid:
+bool nvIsSymbolValid(string symbol)
+{
+  int num = SymbolsTotal(false);
+  for(int i=0;i<num;++i)
+  {
+    if(symbol==SymbolName(i,false))
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+double nvConvertPrice(double price, string srcCurrency, string destCurrency, datetime time=0)
+{
+  int srcDigits = 2;
+  if(srcCurrency=="JPY") {
+    srcDigits = 0;
+  }
+
+  // Convert the input price given the number of digit precision:
+  price = NormalizeDouble( price, srcDigits );
+
+  if(srcCurrency==destCurrency)
+    return price;
+
+  if(time==0) {
+    time = TimeCurrent();
+  }
+
+  int destDigits = 2;
+  if(destCurrency=="JPY") {
+    destDigits = 0;
+  }
+
+  // If the currencies are not the same, we have to do the convertion:
+  string symbol1 = srcCurrency+destCurrency;
+  string symbol2 = destCurrency+srcCurrency;
+
+  if(nvIsSymbolValid(symbol1))
+  {
+    // Then we retrieve the current symbol1 value:
+    double bid = nvGetBidPrice(symbol1,time);
+
+    // we want to convert into the "quote" currency here, so we should get the smallest value out of it,
+    // And thus ise the bid price:
+    return NormalizeDouble(price * bid, destDigits);
+  }
+  else if(nvIsSymbolValid(symbol2))
+  {
+    // Then we retrieve the current symbol2 value:
+    double ask = nvGetAskPrice(symbol2,time);
+
+    // we want to buy the "base" currency here so we have to divide by the ask price in that case:
+    return NormalizeDouble(price / ask, destDigits); // ask is bigger than bid, so we get the smallest value out of it.
+  }
+  
+  THROW("Unsupported currency names: "<<srcCurrency<<", "<<destCurrency);
+  return 0.0;  
+}
+
+// Retrieve the balance value in a given currency:
+double nvGetBalance(string currency = "")
+{
+  if(currency=="")
+    currency = nvGetAccountCurrency();
+      
   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+  
+  // convert from account currency to the given currency:
+  balance = nvConvertPrice(balance,nvGetAccountCurrency(),currency);
   return balance;    
 }
 
@@ -253,4 +396,64 @@ double nvGetCorrelationEstimate(double &x[], double &y[])
   double dev2 = nvGetStdDevEstimate(y);
   CHECK_RET(dev1>0.0 && dev2>0.0,0.0, "Invalid deviation value for correlation computation.");
   return cov/(dev1*dev2);
+}
+
+// Retrieve the account currency:
+string nvGetAccountCurrency()
+{
+  return AccountInfoString(ACCOUNT_CURRENCY);
+}
+
+// Method called to compute the value of 1 point in a symbol trading given a fixed lot size:
+// Note that the point value is given in the quote currency.
+double nvGetPointValue(string symbol, double lot = 1.0)
+{
+  double point = SymbolInfoDouble(symbol,SYMBOL_POINT);
+  return nvGetContractValue(symbol,lot)*point;
+}
+
+// Retrieve a contract value in the margin currency:
+double nvGetContractValue(string symbol, double lot)
+{
+  // We need to check what is the contract size for this symbol:
+  double csize = SymbolInfoDouble(symbol,SYMBOL_TRADE_CONTRACT_SIZE);
+  return lot*csize;
+}
+
+double nvEvaluateLotSize(string symbol, double numLostPoints, double risk, double weight, double confidence)
+{
+  CHECK_RET(0.0<=weight && weight <= 1.0,0.0,"Invalid trader weight: "<<weight);
+
+  // First we need to convert the current balance value in the desired profit currency:
+  string quoteCurrency = nvGetQuoteCurrency(symbol);
+  double balance = nvGetBalance(quoteCurrency);
+
+  // Now we determine what fraction of this balance we can risk:
+  double VaR = balance * risk * weight * MathAbs(confidence); // This is given in the quote currency.
+
+  // Now we can compute the final lot size:
+  // The worst lost we will achieve in the quote currency is:
+  // VaR = lost = lotsize*contract_size*num_point
+  // thus we need lotsize = VaR/(contract_size*numPoints) = VaR / (point_value * numPoints)
+  // Also: we should prevent the lost point value to go too low !!
+  double lotsize = VaR/(nvGetPointValue(symbol)*MathMax(numLostPoints,1.0));
+  
+  // finally we should normalize the lot size:
+  lotsize = nvNormalizeVolume(lotsize,symbol);
+
+  return lotsize;
+}
+
+// Metohd used to retrieve the profit currency from a given symbol:
+string nvGetQuoteCurrency(string symbol)
+{
+  CHECK_RET(StringLen(symbol)==6,"","Invalid symbol length.");
+  return StringSubstr(symbol,3);
+}
+
+// Metohd used to retrieve the base currency from a given symbol:
+string nvGetBaseCurrency(string symbol)
+{
+  CHECK_RET(StringLen(symbol)==6,"","Invalid symbol length.");
+  return StringSubstr(symbol,0,3);
 }

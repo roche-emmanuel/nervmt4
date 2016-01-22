@@ -14,6 +14,7 @@ protected:
 
   string _symbol;
 
+  double _riskLevel;
   double _traderWeight;
 
 public:
@@ -27,6 +28,7 @@ public:
 
     _symbol = symbol;
     
+    _riskLevel = 0.03;
     _traderWeight = 1.0;
   }
 
