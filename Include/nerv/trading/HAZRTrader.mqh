@@ -2,7 +2,7 @@
 #include <nerv/trading/SecurityTrader.mqh>
 #include <nerv/trading/ALRBasket.mqh>
 #include <nerv/trading/HASignal.mqh>
-#include <nerv/math/SimpleRNG.mqh>
+#include <nerv/trading/MASlopeSignal.mqh>
 
 /*
 Class: nvHAZRTrader
@@ -13,14 +13,8 @@ class nvHAZRTrader : public nvSecurityTrader {
 protected:
   nvALRBasket* _basket;
   nvHASignal* _pHA;
+  nvMASlopeSignal* _maSlope;
 
-  // Number of MA values kept for statistics:
-  int _maCount;
-  double _maVals[];
-  ENUM_TIMEFRAMES _maPeriod;
-  double _maSlopes[];
-  int _fastMACount;
-  double _fastMASlopes[];
 public:
   /*
     Class constructor.
@@ -33,13 +27,7 @@ public:
     logDEBUG("Creating HAZRTrader")    
     _basket = new nvALRBasket(_symbol);
     _pHA = new nvHASignal(symbol,phaPeriod);
-
-    _maPeriod = maPeriod;
-    _maCount = 500;
-    _fastMACount = 5;
-    ArrayResize(_maVals, _maCount);
-    ArrayResize(_maSlopes, _maCount-1);
-    ArrayResize(_fastMASlopes, _fastMACount);
+    _maSlope = new nvMASlopeSignal(symbol,maPeriod, 500, 5);
   }
 
   /*
@@ -50,6 +38,7 @@ public:
     logDEBUG("Deleting HAZRTrader")
     RELEASE_PTR(_basket);
     RELEASE_PTR(_pHA);
+    RELEASE_PTR(_maSlope);
   }
 
   virtual void update(datetime ctime)
@@ -76,37 +65,7 @@ public:
   */
   double getMarketTrend()
   {
-    int i;
-    
-    for(i=0;i<_maCount;++i)
-    {
-      _maVals[i] = iMA(_symbol,_maPeriod,20,0,MODE_EMA,PRICE_CLOSE,1+i);
-    }
-
-    // Prepare the slope array:
-    for(i=0;i<(_maCount-1);++i)
-    {
-      // Keep in mind that the EMA array is accessed as time serie:
-      _maSlopes[i] = _maVals[i] - _maVals[i+1];
-    }
-
-    // compute the mean and devs of the slope:
-    double slopeMean = nvGetMeanEstimate(_maSlopes);
-    double slopeDev = nvGetStdDevEstimate(_maSlopes);
-
-    // Now we consider only the slope mean from the previous n timeframes:
-    for(i=0;i<_fastMACount;++i)
-    {
-      _fastMASlopes[i] = _maSlopes[i];
-    }
-
-    double slope = nvGetMeanEstimate(_fastMASlopes);
-    
-    // Normalize the slope value:
-    slope = (slope - slopeMean)/slopeDev;
-
-    //  Take sigmoid to stay in the range [-1,1]:
-    return (nvSigmoid(slope)-0.5)*2.0;  
+    return _maSlope.getSignal();
   }
 
   virtual void onTick()
