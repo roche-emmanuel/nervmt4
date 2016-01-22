@@ -7,3 +7,6 @@ Experts/mqlcache.dat
 
 # ignore log file:
 Logs/*.log
+
+# ignore exe data:
+Indicators/mqlcache.dat
