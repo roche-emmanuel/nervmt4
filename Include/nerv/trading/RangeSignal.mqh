@@ -51,14 +51,14 @@ public:
     {
       sig = 1.0;
       _lastPrice += MathFloor(delta/_range)*_range; 
-      logDEBUG("Sending range signal 1.0 at new price "<<_lastPrice)
+      // logDEBUG("Sending range signal 1.0 at new price "<<_lastPrice)
     }
     
     if(delta<-_range)
     {
       sig = -1.0;
       _lastPrice -= MathFloor(-delta/_range)*_range;
-      logDEBUG("Sending range signal -1.0 at new price "<<_lastPrice)
+      // logDEBUG("Sending range signal -1.0 at new price "<<_lastPrice)
     }
 
     // if(sig==0.0)

@@ -354,17 +354,19 @@ protected:
     double lot = nvNormalizeVolume(totalLot/5.0,_symbol);
 
     CHECK(_stopLoss==0.0,"Should not open a position when we have a stop loss set.")
-    
-    if(lot<0.01) {
-      logDEBUG("Detected too small lot size: "<<lot)
-      lot = 0.01;
-    }
+
+    // if(lot<0.01) {
+    //   logDEBUG("Detected too small lot size: "<<lot)
+    //   lot = 0.01;
+    // }
+    // force a lot size of 0.02 for now:
+    lot = 0.02;
 
     _volatility = volatility;
     _entryPrice = otype==OP_BUY ? nvGetAsk(_symbol) : nvGetBid(_symbol);
     _lotSize = lot;
 
-    logDEBUG(TimeCurrent() << ": Entry price: " << _entryPrice)
+    logDEBUG(TimeCurrent() << ": Entry price: " << _entryPrice << ", lot="<<lot)
 
     // reset averaging count:
     _averagingCount = 1;
