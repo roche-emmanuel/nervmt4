@@ -15,7 +15,7 @@ protected:
   nvALRBasket* _basket;
   nvHASignal* _pHA;
   nvMASlopeSignal* _maSlope;
-  nvRangeSignal* _entryRange;
+  nvRangeSignal* _entryRanges[];
 
   // list of current open position:
   int _tickets[];
@@ -31,6 +31,8 @@ protected:
 
   ENUM_TIMEFRAMES _atrPeriod;
   ENUM_TIMEFRAMES _maPeriod;
+  int _sigLevel;
+
 public:
   /*
     Class constructor.
@@ -47,13 +49,22 @@ public:
 
     _basket = new nvALRBasket(_symbol);
     _basket.setZoneWidth(_maxRange);
-    _basket.setBreakEvenWidth(3.0*_maxRange);
-    _basket.setProfitWidth(0.5*_maxRange);
+    _basket.setBreakEvenWidth(1.0*_maxRange);
+    _basket.setProfitWidth(0.1*_maxRange);
+    _basket.setWarningLevel(5);
+    _basket.setStopLevel(8);
 
     _pHA = new nvHASignal(symbol,phaPeriod);
     _maSlope = new nvMASlopeSignal(symbol,maPeriod, 500, 5);
-    _entryRange = new nvRangeSignal(_symbol,10.0);
-
+    
+    int rcount = 2;
+    ArrayResize(_entryRanges,rcount);
+    for(int i=0;i<rcount;++i)
+    {
+      _entryRanges[i] = new nvRangeSignal(_symbol,20.0 + i*20.0);  
+    }
+    
+    _sigLevel = 0;
     _stopLoss = 0.0;
     _trail = 0.0;
     _atrPeriod = atrPeriod;
@@ -68,7 +79,11 @@ public:
     RELEASE_PTR(_basket);
     RELEASE_PTR(_pHA);
     RELEASE_PTR(_maSlope);
-    RELEASE_PTR(_entryRange);
+    int len = ArraySize(_entryRanges);
+    for(int i=0;i<len;++i)
+    {
+      RELEASE_PTR(_entryRanges[i]);
+    }
   }
 
   virtual void update(datetime ctime)
@@ -146,7 +161,33 @@ public:
   // retrieve the current entry signal:
   double getEntrySignal()
   {
-    return _entryRange.getSignal();
+    return _entryRanges[0].getSignal();
+  }
+
+  double getSubSignal()
+  {
+    int len = ArraySize(_entryRanges);
+    if(_sigLevel>=len)
+      return 0.0; // No more possibility.
+
+    CHECK_RET(_sigLevel>=0,0.0,"Invalid sig level")
+
+    if(_averagingCount==5)
+    {
+      return 0.0;
+    }
+
+    CHECK_RET(hasPositions(),0.0,"Should have a position here.")
+
+    double sig = _entryRanges[_sigLevel].getSignal();
+    if((isLong() && sig>0.0) || (isShort() && sig<0.0))
+    {
+      logDEBUG("Signaling sub signal "<<_sigLevel)
+      _sigLevel++;
+      return sig;
+    }
+
+    return 0.0;
   }
 
   void startTrailingStop(double trail)
@@ -214,6 +255,11 @@ public:
       performCostAveraging();
     }
 
+    if(getSubSignal()>0.0) {
+      logDEBUG("Performing dollar cost averaging for sub signal")
+      performCostAveraging(_sigLevel/3.0);
+    }
+
     // Check if we need to enter into recovery mode:
     if(_entryPrice-bid >= _volatility)
     {
@@ -250,6 +296,11 @@ public:
       performCostAveraging();
     }
 
+    if(getSubSignal()<0.0) {
+      logDEBUG("Performing dollar cost averaging for sub signal")
+      performCostAveraging(_sigLevel/3.0);
+    }
+
     // Check if we need to enter into recovery mode:
     if(bid-_entryPrice >= _volatility)
     {
@@ -259,6 +310,7 @@ public:
       // basket will take ownership of these:
       ArrayResize(_tickets,0);
     }
+
   }
 
   /*
@@ -362,6 +414,7 @@ protected:
     // force a lot size of 0.02 for now:
     lot = 0.02;
 
+    _sigLevel = 0;
     _volatility = volatility;
     _entryPrice = otype==OP_BUY ? nvGetAsk(_symbol) : nvGetBid(_symbol);
     _lotSize = lot;
