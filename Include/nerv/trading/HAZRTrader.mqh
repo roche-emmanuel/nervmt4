@@ -412,7 +412,8 @@ protected:
     //   lot = 0.01;
     // }
     // force a lot size of 0.02 for now:
-    lot = 0.02;
+    // lot = 0.02;
+    lot = 0.1;
 
     _sigLevel = 0;
     _volatility = volatility;
@@ -456,7 +457,8 @@ protected:
   // Perform cost averaging:
   void performCostAveraging(double added = 0.0)
   {
-    if(_averagingCount==5) {
+    // Do nothing for now:
+    if(true) { //_averagingCount==5) {
       logDEBUG("Cannot perform dollar cost averaging anymore.")
       return;
     }
