@@ -1,5 +1,10 @@
 #include <nerv/core.mqh>
 
+double nvSigmoid(double val, double lambda = 1.0)
+{
+  return 1.0/(1.0 + MathExp(-lambda*val));
+}
+
 // Retrieve a period duration in number of Seconds
 int nvGetPeriodDuration(ENUM_TIMEFRAMES period)
 {
@@ -177,4 +182,75 @@ double nvGetEquity()
 {
   double balance = AccountInfoDouble(ACCOUNT_EQUITY);
   return balance;    
+}
+
+// Compute the mean of a sample array
+double nvGetMeanEstimate(double &x[])
+{
+  int num = ArraySize( x );
+  CHECK_RET(num>0,0.0,"Invalid sample size.");
+
+  double mean = 0.0;
+  for(int i=0;i<num;++i)
+  {
+    mean += x[i];
+  }
+
+  mean /= num;
+  return mean;
+}
+
+// Compute the estimated standard deviation of a sample array
+// when its mean is provided:
+double nvGetStdDevEstimate(double &x[], double mean)
+{
+  int num = ArraySize( x );
+  CHECK_RET(num>1,0.0,"Invalid sample size.");
+
+  double sig = 0.0;
+  for(int i=0;i<num;++i)
+  {
+    sig += (x[i] - mean)*(x[i] - mean);
+  }
+
+  sig /= (num-1);
+
+  return MathSqrt(sig);
+}
+
+// Compute the estimated standard deviation of a sample array:
+double nvGetStdDevEstimate(double &x[])
+{
+  return nvGetStdDevEstimate(x,nvGetMeanEstimate(x));
+}
+
+// Compute the covariance between 2 samples array:
+double nvGetCovarianceEstimate(double &x[], double &y[])
+{
+  int num = ArraySize( x );
+  int num2 = ArraySize( y );
+  CHECK_RET(num == num2,0.0, "Mismatch in length for covariance computation: " << num<<"!="<<num2);
+
+  double cov = 0.0;
+  double m1 = nvGetMeanEstimate(x);
+  double m2 = nvGetMeanEstimate(y);
+
+  for (int i = 0; i < num; ++i)
+  {
+    cov += (x[i]-m1)*(y[i]-m2);
+  }
+
+  cov /= (num - 1.0);
+
+  return cov;
+}
+
+// Compute the correlation between 2 samples array:
+double nvGetCorrelationEstimate(double &x[], double &y[])
+{
+  double cov = nvGetCovarianceEstimate(x,y);
+  double dev1 = nvGetStdDevEstimate(x);
+  double dev2 = nvGetStdDevEstimate(y);
+  CHECK_RET(dev1>0.0 && dev2>0.0,0.0, "Invalid deviation value for correlation computation.");
+  return cov/(dev1*dev2);
 }
