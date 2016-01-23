@@ -43,6 +43,9 @@ protected:
   // Current entry of this basket:
   double _entryPrice;
 
+  // slippage value:
+  int _slippage;
+
 public:
   /*
     Class constructor.
@@ -61,6 +64,7 @@ public:
     
     setBreakEvenPoints(250.0*psize);
     setTrailStep(50.0*psize);
+    setSlippage(30);
 
     _currentSide = -1;
     _numBounce = 0;
@@ -77,6 +81,12 @@ public:
     logDEBUG("Deleting ALRBasket")
   }
   
+  // Set the slippage value:
+  void setSlippage(int val)
+  {
+    _slippage = val;
+  }
+
   // Set Warning level:
   void setWarningLevel(int level)
   {
@@ -482,7 +492,7 @@ protected:
   int openPosition(int otype, double lot)
   {
     _currentSide = otype;
-    int ticket = nvOpenPosition(_symbol,otype,lot);
+    int ticket = nvOpenPosition(_symbol,otype,lot,0.0,0.0,0.0,_slippage);
     addPosition(ticket);
 
     _numBounce++;
