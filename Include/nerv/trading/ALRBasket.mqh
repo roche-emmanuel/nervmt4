@@ -16,7 +16,7 @@ protected:
   double _zoneWidth;
   double _breakEvenWidth;
   double _profitWidth;
-  double _trail;
+  double _trailStep;
 
   double _zoneHigh;
   double _zoneLow;
@@ -36,6 +36,13 @@ protected:
 
   int _numBounce;
 
+  // Number of positive points we should reach before the 
+  // trailing stop loss system kicks in:
+  double _breakEvenPoints;
+
+  // Current entry of this basket:
+  double _entryPrice;
+
 public:
   /*
     Class constructor.
@@ -47,10 +54,13 @@ public:
     double psize = nvGetPointSize(_symbol);
     
     setZoneWidth(500.0*psize);
-    setBreakEvenWidth(3.0*500.0*psize);
-    setProfitWidth(200.0*psize);
-    setWarningLevel(15);
+    setBreakEvenWidth(2000.0*psize);
+    setProfitWidth(100.0*psize);
+    setWarningLevel(0);
     setStopLevel(-1);
+    
+    setBreakEvenPoints(250.0*psize);
+    setTrailStep(50.0*psize);
 
     _currentSide = -1;
     _numBounce = 0;
@@ -95,7 +105,19 @@ public:
   void setProfitWidth(double width)
   {
     _profitWidth = width;
-    _trail = _profitWidth*0.5;
+  }
+
+  // Set the trail step in number of points:
+  void setTrailStep(double points)
+  {
+    _trailStep = points;
+  }
+
+  // Number of points we should reach before the trailing stop
+  // kicks in:
+  void setBreakEvenPoints(double points)
+  {
+    _breakEvenPoints = points;
   }
 
   /*
@@ -128,17 +150,18 @@ public:
 
     _stopLoss = 0.0;
     _numBounce = 0;
+    _entryPrice = nvGetBid(_symbol);
 
     if(otype==OP_BUY) 
     {
       // We are on the top of the zone:
-      _zoneHigh = nvGetBid(_symbol);
+      _zoneHigh = _entryPrice;
       _zoneLow = _zoneHigh - _zoneWidth;
     }
     else
     {
       // We are at the bottom of the zone:
-      _zoneLow = nvGetBid(_symbol);
+      _zoneLow = _entryPrice;
       _zoneHigh = _zoneLow + _zoneWidth;
     }
 
@@ -173,10 +196,10 @@ public:
     {
       if((_stopLevel>0 && _numBounce>=_stopLevel)
          || (bid > (_zoneHigh + _breakEvenWidth + _profitWidth))
-         || (_numBounce==1 && profit>0.0 && bid > (_zoneHigh+_profitWidth)))
+         || (_numBounce==1 && bid >= (_zoneHigh+_breakEvenPoints)))
       {
         // Initialize the stop loss:
-        _stopLoss = bid - _trail;      
+        _stopLoss = _zoneHigh;      
       }
     }
 
@@ -188,9 +211,9 @@ public:
         close();
         return;
       }
-      else {
+      else if ((bid-_breakEvenPoints) > (_stopLoss+_trailStep)) {
         // check if we should update the stop loss:
-        _stopLoss = MathMax(_stopLoss,bid - _trail);
+        _stopLoss += _trailStep;
       }
     }
 
@@ -215,23 +238,23 @@ public:
     {
       if((_stopLevel>0 && _numBounce>=_stopLevel)
          || (bid < (_zoneLow - _breakEvenWidth - _profitWidth))
-         || (_numBounce==1 && profit>0.0 && bid < (_zoneLow-_profitWidth)))
+         || (_numBounce==1 && bid < (_zoneLow - _breakEvenPoints)))
       {
         // Initialize the stop loss:
-        _stopLoss = bid + _trail; 
+        _stopLoss = _zoneLow; 
       }
     }
 
     if(_stopLoss == 0.0 && _stopLevel>0 && _numBounce>=_stopLevel)
     {
       // Initialize the stop loss:
-      _stopLoss = bid + _trail;
+      _stopLoss = bid + _trailStep;
     }
 
     if(_stopLoss == 0.0 && bid < (_zoneLow - _breakEvenWidth - _profitWidth))
     {
       // Initialize the stop loss:
-      _stopLoss = bid + _trail;
+      _stopLoss = bid + _trailStep;
     }
 
     // check if we already have a stop lost:
@@ -242,9 +265,9 @@ public:
         close();
         return;
       }
-      else {
+      else if ((bid+_breakEvenPoints) < (_stopLoss-_trailStep)) {
         // check if we should update the stop loss:
-        _stopLoss = MathMin(_stopLoss,bid + _trail);
+        _stopLoss -= _trailStep;
       }
     }
 

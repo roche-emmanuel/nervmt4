@@ -38,8 +38,9 @@ int OnInit()
   mtrader = new nvMultiTrader((ENUM_TIMEFRAMES)Period());
 
   // add a random trader:
-  // mtrader.addTrader(new nvRandomALRTrader("EURUSD"));
-  mtrader.addTrader(new nvHAZRTrader("EURUSD"));
+  mtrader.addTrader(new nvRandomALRTrader("EURUSD"));
+  // mtrader.addTrader(new nvHAZRTrader("EURUSD"));
+  // mtrader.addTrader(new nvHAZRTrader("USDJPY"));
 
 #ifdef USE_TIMER
   // Initialize the timer:

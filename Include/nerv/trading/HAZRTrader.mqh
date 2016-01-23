@@ -44,12 +44,12 @@ public:
     : nvSecurityTrader(symbol)
   {
     logDEBUG("Creating HAZRTrader")  
-    _maxRange = 500.0*nvGetPointSize(_symbol);
+    _maxRange = 50.0*nvGetPointSize(_symbol);
     _maPeriod = maPeriod;
 
     _basket = new nvALRBasket(_symbol);
     _basket.setZoneWidth(_maxRange);
-    _basket.setBreakEvenWidth(1.0*_maxRange);
+    _basket.setBreakEvenWidth(3.0*_maxRange);
     _basket.setProfitWidth(0.1*_maxRange);
     _basket.setWarningLevel(5);
     _basket.setStopLevel(8);
@@ -459,7 +459,7 @@ protected:
   {
     // Do nothing for now:
     if(true) { //_averagingCount==5) {
-      logDEBUG("Cannot perform dollar cost averaging anymore.")
+      // logDEBUG("Cannot perform dollar cost averaging anymore.")
       return;
     }
 
