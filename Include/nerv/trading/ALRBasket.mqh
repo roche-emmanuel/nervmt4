@@ -46,6 +46,9 @@ protected:
   // slippage value:
   int _slippage;
 
+  // force take profit value:
+  double _forceTakeProfit;
+
 public:
   /*
     Class constructor.
@@ -66,6 +69,8 @@ public:
     setTrailStep(50.0*psize);
     setSlippage(30);
 
+    setForceTakeProfit(25.0);
+
     _currentSide = -1;
     _numBounce = 0;
     _zoneLow = 0.0;
@@ -85,6 +90,12 @@ public:
   void setSlippage(int val)
   {
     _slippage = val;
+  }
+
+  // Set the profit on which we just close this basket:
+  void setForceTakeProfit(double profit)
+  {
+    _forceTakeProfit = profit;
   }
 
   // Set Warning level:
@@ -293,6 +304,13 @@ public:
   {
     if(!isRunning())
       return; // nothing to update;
+
+    // Check if we should close due to current force take profit value:
+    if(_forceTakeProfit>0.0 && (nvGetEquity() - nvGetBalance()) > _forceTakeProfit)
+    {
+      close();
+      return;
+    }
 
     // Check what is the position of the bid:
     double bid = nvGetBid(_symbol);
