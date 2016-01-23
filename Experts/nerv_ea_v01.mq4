@@ -65,6 +65,7 @@ void OnDeinit(const int reason)
 // OnTick handler:
 void OnTick()
 {
+  mtrader.update();
   mtrader.onTick();
 }
 

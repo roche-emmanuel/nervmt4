@@ -49,6 +49,9 @@ protected:
   // force take profit value:
   double _forceTakeProfit;
 
+  // specify the target profit drift
+  double _takeProfitDrift;
+
 public:
   /*
     Class constructor.
@@ -61,13 +64,14 @@ public:
     
     setZoneWidth(500.0*psize);
     setBreakEvenWidth(2000.0*psize);
-    setProfitWidth(100.0*psize);
+    setProfitWidth(0.0*psize);
     setWarningLevel(0);
-    setStopLevel(-1);
+    setStopLevel(20);
     
     setBreakEvenPoints(250.0*psize);
     setTrailStep(50.0*psize);
     setSlippage(30);
+    setTakeProfitDrift(50.0*psize);
 
     setForceTakeProfit(25.0);
 
@@ -90,6 +94,12 @@ public:
   void setSlippage(int val)
   {
     _slippage = val;
+  }
+
+  // Specify the take profit drift:
+  void setTakeProfitDrift(double points)
+  {
+    _takeProfitDrift = points;
   }
 
   // Set the profit on which we just close this basket:
@@ -167,10 +177,9 @@ public:
   */
   void enter(int otype, double lot)
   {
-    CHECK(_numBounce==0.0,"Cannot enter a running basket.")
+    CHECK(_numBounce==0,"Cannot enter a running basket.")
 
     _stopLoss = 0.0;
-    _numBounce = 0;
     _entryPrice = nvGetBid(_symbol);
 
     if(otype==OP_BUY) 
@@ -198,6 +207,9 @@ public:
     }
 
     _currentSide = otype == OP_BUY ? OP_SELL : OP_BUY;
+    
+    CHECK(_numBounce == 0,"Invalid number of bounce");
+
     // Compute the appropriate lot size:
     double lot = getNextLotSize();
     logDEBUG("Entering basket with initial lot size="<<lot)
@@ -220,7 +232,7 @@ public:
          || (_numBounce==1 && bid >= (_zoneHigh+_breakEvenPoints)))
       {
         // Initialize the stop loss:
-        _stopLoss = _zoneHigh;      
+        _stopLoss = bid - _breakEvenPoints;      
       }
     }
 
@@ -262,7 +274,7 @@ public:
          || (_numBounce==1 && bid < (_zoneLow - _breakEvenPoints)))
       {
         // Initialize the stop loss:
-        _stopLoss = _zoneLow; 
+        _stopLoss = bid + _breakEvenPoints; 
       }
     }
 
@@ -306,7 +318,7 @@ public:
       return; // nothing to update;
 
     // Check if we should close due to current force take profit value:
-    if(_forceTakeProfit>0.0 && (nvGetEquity() - nvGetBalance()) > _forceTakeProfit)
+    if(_numBounce>1 && _forceTakeProfit>0.0 && (nvGetEquity() - nvGetBalance()) > _forceTakeProfit)
     {
       close();
       return;
@@ -407,7 +419,7 @@ protected:
     {
       // We are about to go short now
       // So the breakEven price will be:
-      target = _zoneLow-_breakEvenWidth;
+      target = _zoneLow-_breakEvenWidth+_numBounce*_takeProfitDrift;
       range = nvGetAsk(_symbol) - target;
 
       // it could happen that we are jumping out of the recovery band
@@ -452,7 +464,7 @@ protected:
     {
       // We are about to go long now
       // So the breakEven price will be:
-      target = _zoneHigh+_breakEvenWidth;
+      target = _zoneHigh+_breakEvenWidth-_numBounce*_takeProfitDrift;
       range = target - nvGetAsk(_symbol);
 
       // it could happen that we are jumping out of the recovery band
@@ -497,7 +509,7 @@ protected:
       // lot = _shortLots * (_zoneWidth+_breakEvenWidth)/_breakEvenWidth - _longLots;
     }
 
-    logDEBUG("Computed next lot size="<<lot<<", np="<<np<<", range="<<range)
+    logDEBUG("Computed next lot size="<<lot<<", np="<<np<<", range="<<range<<" for bounce="<<_numBounce)
 
     // We need to round the lot value to a ceil:
     double step = SymbolInfoDouble(_symbol,SYMBOL_VOLUME_STEP);
