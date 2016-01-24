@@ -14,7 +14,8 @@ protected:
   string _symbol;
 
   double _zoneWidth;
-  double _breakEvenWidth;
+  double _posBreakEvenWidth;
+  double _negBreakEvenWidth;
   double _profitWidth;
   double _trailStep;
 
@@ -52,6 +53,14 @@ protected:
   // specify the target profit drift
   double _takeProfitDrift;
 
+  // Type of entry for this basket:
+  int _entryType;
+   
+  double _buyTarget;
+  double _sellTarget;
+
+  double _takeProfitOffset;
+
 public:
   /*
     Class constructor.
@@ -63,11 +72,13 @@ public:
     double psize = nvGetPointSize(_symbol);
     
     setZoneWidth(500.0*psize);
-    setBreakEvenWidth(2000.0*psize);
+    setPositiveBreakEvenWidth(2000.0*psize);
+    setNegativeBreakEvenWidth(1500.0*psize);
     setProfitWidth(0.0*psize);
+    setTakeProfitOffset(50.0*psize);
     setWarningLevel(0);
     setStopLevel(20);
-    
+
     setBreakEvenPoints(250.0*psize);
     setTrailStep(50.0*psize);
     setSlippage(30);
@@ -80,6 +91,8 @@ public:
     _zoneLow = 0.0;
     _zoneHigh = 0.0;
     _stopLoss = 0.0;
+    _buyTarget = 0.0;
+    _sellTarget = 0.0;
   }
 
   /*
@@ -94,6 +107,11 @@ public:
   void setSlippage(int val)
   {
     _slippage = val;
+  }
+
+  void setTakeProfitOffset(double val)
+  {
+    _takeProfitOffset = val;
   }
 
   // Specify the take profit drift:
@@ -126,10 +144,17 @@ public:
     _zoneWidth = width;
   }
 
-  // Set the breakeven width in price delta:
-  void setBreakEvenWidth(double width)
+  // Set the positive breakeven width in price delta:
+  // "positive" means in the direction of the initial trade
+  // for this basket
+  void setPositiveBreakEvenWidth(double width)
   {
-    _breakEvenWidth = width;
+    _posBreakEvenWidth = width;
+  }
+
+  void setNegativeBreakEvenWidth(double width)
+  {
+    _negBreakEvenWidth = width;
   }
 
   // Set te profit width in price delta
@@ -181,6 +206,7 @@ public:
 
     _stopLoss = 0.0;
     _entryPrice = nvGetBid(_symbol);
+    _entryType = otype;
 
     if(otype==OP_BUY) 
     {
@@ -195,6 +221,8 @@ public:
       _zoneHigh = _zoneLow + _zoneWidth;
     }
 
+    setupTargets();
+
     openPosition(otype,lot);
   }
 
@@ -207,7 +235,8 @@ public:
     }
 
     _currentSide = otype == OP_BUY ? OP_SELL : OP_BUY;
-    
+    _entryType = otype;
+
     CHECK(_numBounce == 0,"Invalid number of bounce");
 
     // Compute the appropriate lot size:
@@ -216,11 +245,11 @@ public:
     enter(otype,lot);
   }
 
-  void updateLongState(double bid, double profit)
+  void updateLongState(double bid)
   {
-    if(_warningLevel>0 && _numBounce>=_warningLevel 
-       && bid > (_zoneHigh + _breakEvenWidth) && profit>0.0)
+    if(bid > (_zoneHigh + _buyTarget))
     {
+      // logDEBUG("Closing LONG because bid="<<bid<<">"<<(_zoneHigh+_buyTarget))
       close();
       return;
     }
@@ -228,7 +257,6 @@ public:
     if(_stopLoss == 0.0)
     {
       if((_stopLevel>0 && _numBounce>=_stopLevel)
-         || (bid > (_zoneHigh + _breakEvenWidth + _profitWidth))
          || (_numBounce==1 && bid >= (_zoneHigh+_breakEvenPoints)))
       {
         // Initialize the stop loss:
@@ -258,10 +286,9 @@ public:
     }
   }
 
-  void updateShortState(double bid, double profit)
+  void updateShortState(double bid)
   {
-    if(_warningLevel>0 && _numBounce>=_warningLevel 
-       && bid < (_zoneHigh - _breakEvenWidth) && profit>0.0)
+    if(bid < (_zoneLow - _sellTarget))
     {
       close();
       return;
@@ -270,24 +297,11 @@ public:
     if(_stopLoss == 0.0)
     {
       if((_stopLevel>0 && _numBounce>=_stopLevel)
-         || (bid < (_zoneLow - _breakEvenWidth - _profitWidth))
          || (_numBounce==1 && bid < (_zoneLow - _breakEvenPoints)))
       {
         // Initialize the stop loss:
         _stopLoss = bid + _breakEvenPoints; 
       }
-    }
-
-    if(_stopLoss == 0.0 && _stopLevel>0 && _numBounce>=_stopLevel)
-    {
-      // Initialize the stop loss:
-      _stopLoss = bid + _trailStep;
-    }
-
-    if(_stopLoss == 0.0 && bid < (_zoneLow - _breakEvenWidth - _profitWidth))
-    {
-      // Initialize the stop loss:
-      _stopLoss = bid + _trailStep;
     }
 
     // check if we already have a stop lost:
@@ -327,15 +341,13 @@ public:
     // Check what is the position of the bid:
     double bid = nvGetBid(_symbol);
 
-    double profit = getCurrentProfit();
-
     if(_currentSide==OP_BUY)
     {
-      updateLongState(bid,profit);
+      updateLongState(bid);
     }
     else 
     {
-      updateShortState(bid,profit);
+      updateShortState(bid);
     }
   }
 
@@ -343,7 +355,9 @@ public:
   void close()
   {    
     int len = ArraySize(_tickets);
-    logDEBUG("Closing basked of "<<len<<" positions.")
+    double profit = getCurrentProfit();
+
+    logDEBUG("Closing basked of "<<len<<" positions with profit="<<profit)
     
     // Close the trades in reverse order for a better balance display :-)
     for(int i=0;i<len;++i)
@@ -414,12 +428,14 @@ protected:
     // Compute the long and short values:
     double lot = 0.0;
     double target, np, range;
-    
+
+    setupTargets();
+
     if(_currentSide==OP_BUY)
     {
       // We are about to go short now
       // So the breakEven price will be:
-      target = _zoneLow-_breakEvenWidth+_numBounce*_takeProfitDrift;
+      target = _zoneLow-_sellTarget;
       range = nvGetAsk(_symbol) - target;
 
       // it could happen that we are jumping out of the recovery band
@@ -436,7 +452,7 @@ protected:
         _zoneHigh = _zoneLow + _zoneWidth;
 
         // Recompute target and range:
-        target = _zoneLow-_breakEvenWidth;
+        target = _zoneLow-_sellTarget;
         range = nvGetAsk(_symbol) - target;
       }
 
@@ -448,7 +464,7 @@ protected:
       CHECK_RET(np <= 0,0.0,"Point profit was positive : "<<np);
 
       // lot = np/(nvGetBid(_symbol) - target + spread)
-      lot = -np/range;
+      lot = -np/(range-_takeProfitOffset);
 
       // So check how much we will loose because of the long lots:
       // lost = _longLots * (_zoneWidth+_breakEvenWidth);
@@ -464,7 +480,7 @@ protected:
     {
       // We are about to go long now
       // So the breakEven price will be:
-      target = _zoneHigh+_breakEvenWidth-_numBounce*_takeProfitDrift;
+      target = _zoneHigh+_buyTarget;
       range = target - nvGetAsk(_symbol);
 
       // it could happen that we are jumping out of the recovery band
@@ -481,7 +497,7 @@ protected:
         _zoneLow = _zoneHigh - _zoneWidth;
 
         // Recompute target and range:
-        target = _zoneHigh+_breakEvenWidth;
+        target = _zoneHigh+_buyTarget;
         range = target - nvGetAsk(_symbol);
       }
       CHECK_RET(range>0.0,0.0,"Detected invalid BUY range: "<<range
@@ -497,7 +513,7 @@ protected:
 
       // lot = np/(target - spread - nvGetBid(_symbol));
       // lot = np/(target - (Ask - Bid) - nvGetBid(_symbol));
-      lot = -np/range;
+      lot = -np/(range-_takeProfitOffset);
 
       // We are going to be long, so we compute the lost due to the short lots:
       // lost = _shortLots * (_zoneWidth + _breakEvenWidth);
@@ -523,6 +539,12 @@ protected:
   {
     _currentSide = otype;
     int ticket = nvOpenPosition(_symbol,otype,lot,0.0,0.0,0.0,_slippage);
+    if(ticket<0)
+    {
+      logWARN("Cannot open position with lot="<<lot<<", bounce="<<_numBounce);
+      return ticket;
+    }
+
     addPosition(ticket);
 
     _numBounce++;
@@ -531,5 +553,22 @@ protected:
     logDEBUG("Opened basked position " << len<< " with "<<lot<<" lots.")
 
     return ticket;
+  }
+
+  void setupTargets()
+  {
+    // Update the range target:
+    if(_entryType==OP_BUY)
+    {
+      _buyTarget = _posBreakEvenWidth-_numBounce*_takeProfitDrift;
+      _sellTarget = _negBreakEvenWidth-_numBounce*_takeProfitDrift;
+    }
+    else
+    {
+      _buyTarget = _negBreakEvenWidth-_numBounce*_takeProfitDrift;
+      _sellTarget = _posBreakEvenWidth-_numBounce*_takeProfitDrift;
+    }
+
+    logDEBUG("At bounce "<<_numBounce<<": buyTarget="<<_buyTarget<<", sellTarget="<<_sellTarget);
   }  
 };

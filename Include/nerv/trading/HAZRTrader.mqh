@@ -49,7 +49,7 @@ public:
 
     _basket = new nvALRBasket(_symbol);
     _basket.setZoneWidth(_maxRange);
-    _basket.setBreakEvenWidth(3.0*_maxRange);
+    //_basket.setBreakEvenWidth(3.0*_maxRange);
     _basket.setProfitWidth(0.1*_maxRange);
     _basket.setWarningLevel(5);
     _basket.setStopLevel(8);

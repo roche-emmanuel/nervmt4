@@ -2,3 +2,4 @@
 01/23/16-11:17:01: Added supoprt for slippage in ALRBasket.
 01/23/16-11:32:05: Added support for force take profit.
 01/23/16-15:35:49: Fixed usage of force take profit.
+01/24/16-02:43:08: Added buy/sell targets.
