@@ -41,8 +41,8 @@ int OnInit()
   // add a random trader:
   // mtrader.addTrader(new nvRandomALRTrader("EURUSD"));
   // mtrader.addTrader(new nvRandomALRTrader("USDJPY"));
-  // mtrader.addTrader(new nvScalperTrader("EURUSD"));
-  mtrader.addTrader(new nvHAZRTrader("EURUSD"));
+  mtrader.addTrader(new nvScalperTrader("EURUSD"));
+  // mtrader.addTrader(new nvHAZRTrader("EURUSD"));
   // mtrader.addTrader(new nvHAZRTrader("USDJPY"));
 
 #ifdef USE_TIMER

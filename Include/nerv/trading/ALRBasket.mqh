@@ -61,6 +61,9 @@ protected:
 
   double _takeProfitOffset;
 
+  double _takeProfitDecay;
+  int _decayLevel;
+
 public:
   /*
     Class constructor.
@@ -78,6 +81,9 @@ public:
     setTakeProfitOffset(50.0*psize);
     setWarningLevel(0);
     setStopLevel(20);
+
+    setDecayLevel(8);
+    setTakeProfitDecay(50.0*psize);
 
     setBreakEvenPoints(250.0*psize);
     setTrailStep(50.0*psize);
@@ -103,6 +109,16 @@ public:
     logDEBUG("Deleting ALRBasket")
   }
   
+  void setDecayLevel(int level)
+  {
+    _decayLevel = level;
+  }
+
+  void setTakeProfitDecay(double val)
+  {
+    _takeProfitDecay = val;
+  }
+
   // Set the slippage value:
   void setSlippage(int val)
   {
@@ -247,7 +263,13 @@ public:
 
   void updateLongState(double bid)
   {
-    if(bid > (_zoneHigh + _buyTarget))
+    double vBuyTarget = _buyTarget;
+    if(_decayLevel>=0 && _numBounce>_decayLevel)
+    {
+      vBuyTarget -= (_numBounce-_decayLevel)*_takeProfitDecay;
+    }
+
+    if(bid > (_zoneHigh + vBuyTarget))
     {
       // logDEBUG("Closing LONG because bid="<<bid<<">"<<(_zoneHigh+_buyTarget))
       close();
@@ -288,7 +310,13 @@ public:
 
   void updateShortState(double bid)
   {
-    if(bid < (_zoneLow - _sellTarget))
+    double vSellTarget = _sellTarget;
+    if(_decayLevel>=0 && _numBounce>_decayLevel)
+    {
+      vSellTarget -= (_numBounce-_decayLevel)*_takeProfitDecay;
+    }
+
+    if(bid < (_zoneLow - vSellTarget))
     {
       close();
       return;

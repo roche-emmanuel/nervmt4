@@ -55,13 +55,13 @@ public:
     // _basket.setStopLevel(8);
 
     _pHA = new nvHASignal(symbol,phaPeriod);
-    _maSlope = new nvMASlopeSignal(symbol,maPeriod, 500, 5);
+    _maSlope = new nvMASlopeSignal(symbol,maPeriod, 10, 5);
     
     int rcount = 2;
     ArrayResize(_entryRanges,rcount);
     for(int i=0;i<rcount;++i)
     {
-      _entryRanges[i] = new nvRangeSignal(_symbol,20.0 + i*20.0);  
+      _entryRanges[i] = new nvRangeSignal(_symbol,100.0 + i*100.0);  
     }
     
     _sigLevel = 0;
@@ -371,14 +371,14 @@ public:
       // We are not in a position yet, so check if we should enter:
       double vol = getVolatilityRange();
 
-      if(pdir>0.0 && trend > 0.3 && pind>0.0 && esig>0.0)
+      if(pdir>0.0 && trend > 0.0 && pind>0.0 && esig>0.0)
       {
         // place a buy order:
         logDEBUG("Opening Long position with vol="<<vol)
         openPosition(OP_BUY,vol);
       }
       
-      if(pdir<0.0 && trend < -0.3 && pind<0.0 && esig<0.0)
+      if(pdir<0.0 && trend < 0.0 && pind<0.0 && esig<0.0)
       {
         // place a sell order:
         logDEBUG("Opening short position with vol="<<vol)

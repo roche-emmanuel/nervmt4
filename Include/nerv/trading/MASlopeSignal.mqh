@@ -78,11 +78,13 @@ public:
     {
       // Keep in mind that the EMA array is accessed as time serie:
       _maSlopes[i] = _maVals[i] - _maVals[i+1];
+      // logDEBUG("Slope value: "<<_maSlopes[i]);
     }
 
     // compute the mean and devs of the slope:
-    double slopeMean = nvGetMeanEstimate(_maSlopes);
-    double slopeDev = nvGetStdDevEstimate(_maSlopes);
+    // double slopeMean = nvGetMeanEstimate(_maSlopes);
+    // double slopeDev = nvGetStdDevEstimate(_maSlopes);
+    // CHECK_RET(slopeDev>0.0,0.0,"Invalid slope dev.")
 
     // Now we consider only the slope mean from the previous n timeframes:
     for(i=0;i<_fastMACount;++i)
@@ -93,7 +95,7 @@ public:
     double slope = nvGetMeanEstimate(_fastMASlopes);
     
     // Normalize the slope value:
-    slope = (slope - slopeMean)/slopeDev;
+    // slope = (slope - slopeMean)/slopeDev;
 
     //  Take sigmoid to stay in the range [-1,1]:
     _signal = (nvSigmoid(slope)-0.5)*2.0;  
