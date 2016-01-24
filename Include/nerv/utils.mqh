@@ -197,6 +197,17 @@ int nvGetPositionType(int ticket)
   return -1;
 }
 
+bool nvIsPositionClosed(int ticket)
+{
+  if(OrderSelect(ticket,SELECT_BY_TICKET))
+  {
+    return OrderCloseTime()!=0;
+  }
+
+  // Return true by default:
+  return true;  
+}
+
 // Retrieve the ticket profit:
 double nvGetPositionProfit(int ticket)
 {
