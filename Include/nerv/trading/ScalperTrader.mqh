@@ -58,7 +58,7 @@ public:
     double sma377 = iMA(_symbol,_period,377,0,MODE_SMMA,PRICE_CLOSE,0);
     double sma55 = iMA(_symbol,_period,55,0,MODE_SMMA,PRICE_CLOSE,0);
 
-    double dev = 3.0;
+    double dev = 2.5;
     double btop = iBands(_symbol,_period,20,dev,0,PRICE_CLOSE,MODE_UPPER,0);
     double bdown = iBands(_symbol,_period,20,dev,0,PRICE_CLOSE,MODE_LOWER,0);
 
@@ -74,12 +74,12 @@ public:
     bool s3 = rsi > 65.0;
     bool s4 = sto > 80.0;
 
-    double sl = 10.0;
-    double tp = 40.0;
+    double sl = 4.0;
+    double tp = 30.0;
 
     if(s1 && s2 && s3 && s4)
     {
-      _ticket = nvOpenPosition(_symbol,OP_SELL,0.1,bid+sl*10.0*_psize,bid-tp*10.0*_psize);
+      _ticket = nvOpenPosition(_symbol,OP_SELL,0.01,bid+sl*10.0*_psize,bid-tp*10.0*_psize);
     }
 
     // check buy conditions:
@@ -90,7 +90,7 @@ public:
 
     if(b1 && b2 && b3 && b4)
     {
-      _ticket = nvOpenPosition(_symbol,OP_BUY,0.1,bid-sl*10.0*_psize,bid+tp*10.0*_psize);
+      _ticket = nvOpenPosition(_symbol,OP_BUY,0.01,bid-sl*10.0*_psize,bid+tp*10.0*_psize);
     }
   }
 };

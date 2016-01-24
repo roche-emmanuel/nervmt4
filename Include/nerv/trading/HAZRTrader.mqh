@@ -44,15 +44,15 @@ public:
     : nvSecurityTrader(symbol)
   {
     logDEBUG("Creating HAZRTrader")  
-    _maxRange = 50.0*nvGetPointSize(_symbol);
+    _maxRange = 500.0*nvGetPointSize(_symbol);
     _maPeriod = maPeriod;
 
     _basket = new nvALRBasket(_symbol);
-    _basket.setZoneWidth(_maxRange);
+    // _basket.setZoneWidth(_maxRange);
     //_basket.setBreakEvenWidth(3.0*_maxRange);
-    _basket.setProfitWidth(0.1*_maxRange);
-    _basket.setWarningLevel(5);
-    _basket.setStopLevel(8);
+    // _basket.setProfitWidth(0.1*_maxRange);
+    // _basket.setWarningLevel(5);
+    // _basket.setStopLevel(8);
 
     _pHA = new nvHASignal(symbol,phaPeriod);
     _maSlope = new nvMASlopeSignal(symbol,maPeriod, 500, 5);
