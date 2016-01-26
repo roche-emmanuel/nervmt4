@@ -48,7 +48,7 @@ public:
     MqlDateTime dts;
     TimeToStruct(ctime,dts);
 
-    if(!nvIsPositionClosed(_ticket))
+    if(!nvIsPosClosed(_ticket))
     {
       // Close the position if it is too old:
       datetime otime = OrderOpenTime();

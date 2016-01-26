@@ -166,7 +166,16 @@ int nvOpenPosition(string symbol, int otype, double lot,
   if(price==0.0)
   {
     // Use the current market bid or ask price:
-    price = otype==OP_BUY ? nvGetAsk(symbol) : nvGetBid(symbol);
+    double bid = nvGetBid(symbol);
+    price = otype==ORDER_TYPE_BUY ? nvGetAsk(symbol) : bid;
+    if(sl!=0.0)
+    {
+      sl = otype==ORDER_TYPE_BUY ? bid-sl : bid+sl;
+    }
+    if(tp!=0.0)
+    {
+      tp = otype==ORDER_TYPE_BUY ? bid+tp : bid-tp;
+    }
   }
 
   int numd = (int)SymbolInfoInteger(symbol,SYMBOL_DIGITS);
@@ -197,7 +206,34 @@ int nvGetPositionType(int ticket)
   return -1;
 }
 
-bool nvIsPositionClosed(int ticket)
+bool nvIsPosPending(int ticket)
+{
+  if(OrderSelect(ticket,SELECT_BY_TICKET))
+  {
+    int otype = OrderType();
+    return otype==OP_BUYLIMIT || otype==OP_BUYSTOP || otype==OP_SELLSTOP || otype==OP_SELLLIMIT;
+  }
+
+  return false;
+}
+
+bool nvIsPosValid(int ticket)
+{
+  return OrderSelect(ticket,SELECT_BY_TICKET);
+}
+
+bool nvIsPosRunning()
+{
+  if(OrderSelect(ticket,SELECT_BY_TICKET))
+  {
+    int otype = OrderType();
+    return (otype==OP_BUY || otype==OP_SELL) && OrderCloseTime()!=0;
+  }
+
+  return false;
+}
+
+bool nvIsPosClosed(int ticket)
 {
   if(OrderSelect(ticket,SELECT_BY_TICKET))
   {
@@ -205,7 +241,7 @@ bool nvIsPositionClosed(int ticket)
   }
 
   // Return true by default:
-  return true;  
+  return false;  
 }
 
 // Retrieve the ticket profit:

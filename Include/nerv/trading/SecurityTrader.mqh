@@ -13,6 +13,7 @@ protected:
   nvSecurity _security;
 
   string _symbol;
+  double _psize;
 
   double _riskLevel;
   double _traderWeight;
@@ -27,6 +28,7 @@ public:
     logDEBUG("Creating Security Trader for "<<symbol)
 
     _symbol = symbol;
+    _psize = nvGetPointSize(_symbol);
     
     _riskLevel = 0.03;
     _traderWeight = 1.0;
