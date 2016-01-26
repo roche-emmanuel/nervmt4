@@ -16,7 +16,7 @@ protected:
   int _dur;
 
   nvHighLowSignal* _hl;
-
+  
 public:
   /*
     Class constructor.

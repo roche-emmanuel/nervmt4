@@ -9,7 +9,7 @@ class nvScalperTrader : public nvSecurityTrader {
 protected:
   int _ticket;
   ENUM_TIMEFRAMES _period;
-  double _psize;
+
   int _dur;
   datetime _lastTime;
   int _maxDuration;

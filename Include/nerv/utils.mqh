@@ -167,14 +167,14 @@ int nvOpenPosition(string symbol, int otype, double lot,
   {
     // Use the current market bid or ask price:
     double bid = nvGetBid(symbol);
-    price = otype==ORDER_TYPE_BUY ? nvGetAsk(symbol) : bid;
+    price = otype==OP_BUY ? nvGetAsk(symbol) : bid;
     if(sl!=0.0)
     {
-      sl = otype==ORDER_TYPE_BUY ? bid-sl : bid+sl;
+      sl = otype==OP_BUY ? bid-sl : bid+sl;
     }
     if(tp!=0.0)
     {
-      tp = otype==ORDER_TYPE_BUY ? bid+tp : bid-tp;
+      tp = otype==OP_BUY ? bid+tp : bid-tp;
     }
   }
 
@@ -185,7 +185,10 @@ int nvOpenPosition(string symbol, int otype, double lot,
   tp = NormalizeDouble(tp,numd);
   lot = nvNormalizeVolume(lot,symbol);
 
-  int ticket = OrderSend(symbol,otype,lot,price,slippage,sl,tp);
+  color col = otype==OP_BUY ? clrBlue : clrRed;
+  int magic = 12345;
+  
+  int ticket = OrderSend(symbol,otype,lot,price,slippage,sl,tp,NULL,magic,0,col);
   if(ticket<0)
   {
     int errno = GetLastError();
@@ -222,7 +225,7 @@ bool nvIsPosValid(int ticket)
   return OrderSelect(ticket,SELECT_BY_TICKET);
 }
 
-bool nvIsPosRunning()
+bool nvIsPosRunning(int ticket)
 {
   if(OrderSelect(ticket,SELECT_BY_TICKET))
   {
@@ -276,7 +279,8 @@ bool nvClosePosition(int ticket, double lot = 0.0, double price = 0.0, int slipp
     price = otype==OP_BUY ? nvGetBid(symbol) : nvGetAsk(symbol);    
   }
 
-  bool res = OrderClose(ticket,lot,price,slippage,Red);
+  color col = otype==OP_BUY ? clrBlue : clrRed;
+  bool res = OrderClose(ticket,lot,price,slippage,col);
   if(!res)
   {
     int errno = GetLastError();

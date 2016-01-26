@@ -23,6 +23,11 @@ protected:
   MqlRates _highs[];
   MqlRates _lows[];
 
+  int _highIdx;
+  int _lowIdx;
+  double _highValue;
+  double _lowValue;
+
 public:
   /*
     Class constructor.
