@@ -263,11 +263,14 @@ public:
     // Check if we need to enter into recovery mode:
     if(_entryPrice-bid >= _volatility)
     {
-      _basket.enter(OP_SELL,_tickets);
+      // Take lost in your face:
+      closePositions();
 
-      // Now we should remove the current tickets as the
-      // basket will take ownership of these:
-      ArrayResize(_tickets,0);
+      // _basket.enter(OP_SELL,_tickets);
+
+      // // Now we should remove the current tickets as the
+      // // basket will take ownership of these:
+      // ArrayResize(_tickets,0);
     }
   }
 
@@ -304,11 +307,14 @@ public:
     // Check if we need to enter into recovery mode:
     if(bid-_entryPrice >= _volatility)
     {
-      _basket.enter(OP_BUY,_tickets);
+      // Take lost in your face:
+      closePositions();
 
-      // Now we should remove the current tickets as the
-      // basket will take ownership of these:
-      ArrayResize(_tickets,0);
+      // _basket.enter(OP_BUY,_tickets);
+
+      // // Now we should remove the current tickets as the
+      // // basket will take ownership of these:
+      // ArrayResize(_tickets,0);
     }
 
   }
