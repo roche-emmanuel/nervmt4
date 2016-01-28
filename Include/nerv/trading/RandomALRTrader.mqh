@@ -64,7 +64,7 @@ public:
     // if we are not in a position, we open a new one randomly:
     int otype = (rnd.GetUniform()-0.5) > 0 ? OP_BUY : OP_SELL;
     
-    double lot = 0.1; //MathMin(0.1,0.02*nvGetBalance()/_initialBalance);
+    double lot = 2.0; //MathMin(0.1,0.02*nvGetBalance()/_initialBalance);
     _basket.enter(otype,lot);
   }
 };
