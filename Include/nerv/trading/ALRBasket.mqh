@@ -80,7 +80,7 @@ public:
     setProfitWidth(0.0*psize);
     setTakeProfitOffset(50.0*psize);
     setWarningLevel(0);
-    setStopLevel(20);
+    setStopLevel(10);
 
     setDecayLevel(8);
     setTakeProfitDecay(50.0*psize);
@@ -260,6 +260,48 @@ public:
     logDEBUG("Entering basket with initial lot size="<<lot)
     enter(otype,lot);
   }
+
+  // Enter with only 1 open position 
+  void enter(int ticket)
+  {
+    CHECK(nvIsPosRunning(ticket),"Invalid ticket to start an ALR basket");
+
+    // Retrieve the lot size for this ticket:
+    double lot = OrderLots();
+
+    addPosition(ticket);
+
+    int otype = OrderType();
+    CHECK(otype==OP_BUY || otype==OP_SELL,"Invalid order type");
+    
+    _stopLoss = 0.0;
+    _entryType = otype;
+    _entryPrice = nvGetBid(_symbol); //OrderOpenPrice(); //;
+    _currentSide = otype;
+
+    logDEBUG("Entering basket with open price="<<_entryPrice << " and lot="<<lot)
+
+    if(otype==OP_BUY) 
+    {
+      // We are on the top of the zone:
+      _zoneHigh = _entryPrice;
+      _zoneLow = _zoneHigh - _zoneWidth;
+    }
+    else
+    {
+      // We are at the bottom of the zone:
+      _zoneLow = _entryPrice;
+      _zoneHigh = _zoneLow + _zoneWidth;
+    }
+
+    logDEBUG("zoneHigh="<<_zoneHigh<<", zoneLow="<<_zoneLow);
+
+    setupTargets();
+
+    // We are already in the first position:
+    _numBounce = 1;
+  }
+
 
   void updateLongState(double bid)
   {
@@ -598,5 +640,6 @@ protected:
     }
 
     logDEBUG("At bounce "<<_numBounce<<": buyTarget="<<_buyTarget<<", sellTarget="<<_sellTarget);
+    logDEBUG("targetHigh="<<(_zoneHigh+_buyTarget)<<", targetLow="<<(_zoneLow-_sellTarget));
   }  
 };

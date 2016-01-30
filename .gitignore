@@ -10,3 +10,5 @@ Logs/*.log
 
 # ignore exe data:
 Indicators/mqlcache.dat
+
+Files/*.log

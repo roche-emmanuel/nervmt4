@@ -185,7 +185,12 @@ int nvOpenPosition(string symbol, int otype, double lot,
   tp = NormalizeDouble(tp,numd);
   lot = nvNormalizeVolume(lot,symbol);
 
-  color col = otype==OP_BUY ? clrBlue : clrRed;
+  color col = clrNONE;
+  if(otype==OP_BUY || otype==OP_SELL)
+  {
+    col = otype==OP_BUY ? clrBlue : clrRed;
+  }
+
   int magic = 12345;
   
   int ticket = OrderSend(symbol,otype,lot,price,slippage,sl,tp,NULL,magic,0,col);
@@ -230,7 +235,7 @@ bool nvIsPosRunning(int ticket)
   if(OrderSelect(ticket,SELECT_BY_TICKET))
   {
     int otype = OrderType();
-    return (otype==OP_BUY || otype==OP_SELL) && OrderCloseTime()!=0;
+    return (otype==OP_BUY || otype==OP_SELL) && OrderCloseTime()==0;
   }
 
   return false;
@@ -507,4 +512,38 @@ string nvGetBaseCurrency(string symbol)
 {
   CHECK_RET(StringLen(symbol)==6,"","Invalid symbol length.");
   return StringSubstr(symbol,0,3);
+}
+
+void nvCloseAllPending(string symbol)
+{
+  // Remove all pending positions on a symbol:
+  int tickets[];
+
+  int num = OrdersTotal();
+  int i;
+  for(i =0;i<num;++i)
+  {
+    if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES))
+    {
+      // Ticket was selected, check if this is for the proper symbol:
+      int otype = OrderType();
+
+      if(OrderSymbol() == symbol && (otype == OP_BUYLIMIT || otype == OP_SELLLIMIT || otype == OP_BUYSTOP || otype == OP_SELLSTOP))
+      {
+        int ticket = OrderTicket();
+        nvAppendArrayElement(tickets,ticket);
+      }
+    }
+  }
+
+  // Now delete the tickets we found:
+  num = ArraySize(tickets);
+  for(i = 0;i<num;++i)
+  {
+    CHECK(OrderDelete(tickets[i],clrNONE),"Cannot delete ticket "<<tickets[i]);
+  }
+}
+void nvRemoveObjects(int chart_id, int type = -1, int win = -1)
+{
+  ObjectsDeleteAll(chart_id,win,type);
 }
