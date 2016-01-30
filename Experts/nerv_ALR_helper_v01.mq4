@@ -167,11 +167,11 @@ void OnTick()
   if(IsTesting())
   {
     datetime ctime = TimeCurrent();
-    if(lastTime==0)
-      lastTime = ctime;
+    // if(lastTime==0)
+    //   lastTime = ctime;
 
     // From time to time place an order:
-    if((ctime - lastTime)>(60.0*10.0))
+    if((ctime - lastTime)>(60.0*1.0))
     {
       lastTime = ctime;
       int ott = (rnd.GetUniform()-0.5) > 0 ? OP_BUY : OP_SELL;
