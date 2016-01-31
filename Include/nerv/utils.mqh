@@ -198,6 +198,7 @@ int nvOpenPosition(string symbol, int otype, double lot,
   {
     int errno = GetLastError();
     logERROR("OpenPosition produced error code: "<<errno<<" ("<<ErrorDescription(errno)<<"), lot="<<lot);
+    logERROR("price="<<price<<", sl="<<sl<<", tp="<<tp);
   }
 
   return ticket;

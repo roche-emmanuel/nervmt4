@@ -314,6 +314,7 @@ public:
     if(bid > (_zoneHigh + vBuyTarget))
     {
       // logDEBUG("Closing LONG because bid="<<bid<<">"<<(_zoneHigh+_buyTarget))
+      logDEBUG("Close with bid above high target: bid="<<bid<<">"<<(_zoneHigh+vBuyTarget))
       close();
       return;
     }
@@ -333,6 +334,7 @@ public:
     {
       if(bid<=_stopLoss) {
         // close this basket:
+        logDEBUG("Close with bid under stoploss: bid="<<bid<<"<="<<_stopLoss)
         close();
         return;
       }
@@ -360,6 +362,7 @@ public:
 
     if(bid < (_zoneLow - vSellTarget))
     {
+      logDEBUG("Close with bid under low target: bid="<<bid<<"<"<<(_zoneLow-vSellTarget))
       close();
       return;
     }
@@ -379,6 +382,7 @@ public:
     {
       if(bid>=_stopLoss) {
         // close this basket:
+        logDEBUG("Close with bid above stoploss: bid="<<bid<<">="<<_stopLoss)
         close();
         return;
       }
@@ -638,6 +642,11 @@ protected:
       _buyTarget = _negBreakEvenWidth-_numBounce*_takeProfitDrift;
       _sellTarget = _posBreakEvenWidth-_numBounce*_takeProfitDrift;
     }
+
+    // The buy and sell targets should never be smaller than the current spread:
+    double spread = nvGetSpread(_symbol);
+    _buyTarget = MathMax(_buyTarget,spread);
+    _sellTarget = MathMax(_sellTarget,spread);
 
     logDEBUG("At bounce "<<_numBounce<<": buyTarget="<<_buyTarget<<", sellTarget="<<_sellTarget);
     logDEBUG("targetHigh="<<(_zoneHigh+_buyTarget)<<", targetLow="<<(_zoneLow-_sellTarget));
