@@ -200,6 +200,11 @@ int nvOpenPosition(string symbol, int otype, double lot,
     logERROR("OpenPosition produced error code: "<<errno<<" ("<<ErrorDescription(errno)<<"), lot="<<lot);
     logERROR("price="<<price<<", sl="<<sl<<", tp="<<tp);
   }
+  else
+  {
+   OrderSelect(ticket,SELECT_BY_TICKET);
+   logDEBUG("Opened order of type "<<otype<<" with bid="<<nvGetBid(symbol)<<", ask="<<nvGetAsk(symbol)<<", openPrice="<<OrderOpenPrice()); 
+  }
 
   return ticket;
 }

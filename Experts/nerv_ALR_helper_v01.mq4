@@ -18,6 +18,8 @@ nvALRBasket* basket = NULL;
 datetime lastTime = 0;
 SimpleRNG rnd;
 bool placed = false;
+double zoneFactor = 1.0;
+double baseLot = 0.1;
 
 void createButton(string bname, int x, int y, int width, int height, int corner, color col)
 {
@@ -143,7 +145,7 @@ void setupPendingOrder(int otype)
   {
     otype = OP_BUYLIMIT;
   }
-  
+
   if(otype == OP_BUYLIMIT || otype == OP_SELLSTOP)
   {
     logDEBUG("Negative price offset for BUYLIMIT or SELLSTOP: "<<atr);
@@ -155,7 +157,7 @@ void setupPendingOrder(int otype)
     price += atr;
   }
 
-  double tp = 25.0;
+  double tp = 20.0;
 
   if(IsTesting())
   {
@@ -172,7 +174,7 @@ void setupPendingOrder(int otype)
     tp = price - tp*psize;
   }
 
-  double lot = 1.0;
+  double lot = baseLot;
   logDEBUG("Opening position type="<<otype<<" at price: "<<price<<" with lot="<<lot<<", tp="<<tp<<", bid="<<bid<<", ask="<<ask)
   nvOpenPosition(_Symbol, otype, lot, 0.0, tp, price, 10);
 }
@@ -194,6 +196,13 @@ int OnInit()
   createButton("SellStop", 10, 110, 100, 20, CORNER_LEFT_UPPER, clrRed);
   createButton("Clear", 10, 140, 100, 20, CORNER_LEFT_UPPER, clrBlue);
   createLabel("Spread",10+100+10,20,100,20,CORNER_LEFT_UPPER, clrYellow);
+  createLabel("ZoneFactor",10+100+10,50,100,20,CORNER_LEFT_UPPER, clrYellow);
+  createButton("Z+",10+100+10+60,50,20,20,CORNER_LEFT_UPPER, clrGreen);
+  createButton("Z-",10+100+10+60+20,50,20,20,CORNER_LEFT_UPPER, clrRed);
+
+  createLabel("BaseLot",10+100+10,80,100,20,CORNER_LEFT_UPPER, clrYellow);
+  createButton("L+",10+100+10+60,80,20,20,CORNER_LEFT_UPPER, clrGreen);
+  createButton("L-",10+100+10+60+20,80,20,20,CORNER_LEFT_UPPER, clrRed);
 
   // Create the recovery basket:
   basket = new nvALRBasket(_Symbol);
@@ -227,6 +236,12 @@ void OnDeinit(const int reason)
   destroyObject("Clear");
   // destroyObject("Spread_rect");
   destroyObject("Spread");
+  destroyObject("ZoneFactor");
+  destroyObject("Z+");
+  destroyObject("Z-");
+  destroyObject("BaseLot");
+  destroyObject("L+");
+  destroyObject("L-");
 
   logDEBUG("Uninitializing ALRHelper for " << _Symbol)
 }
@@ -238,6 +253,8 @@ void OnTick()
   double psize = nvGetPointSize(_Symbol);
   int spread = (int)(nvGetSpread(_Symbol)/psize);
   setLabel("Spread","Spread = "+spread);
+  setLabel("ZoneFactor","ZW = "+zoneFactor);
+  setLabel("BaseLot","Lot = "+baseLot);
 
   basket.update();
 
@@ -253,10 +270,17 @@ void OnTick()
     // if(lastTime==0)
     //   lastTime = ctime;
 
+    if((ctime - lastTime)>(60*60))
+    {
+      // Discard the previous setup:
+      placed = false;
+    }
+
     // From time to time place an order:
-    if((ctime - lastTime)>(60.0*1.0))
+    if((ctime - lastTime)>(60.0*1.0) && !placed)
     {
       logDEBUG("Placing new order...")
+      placed = true;
       lastTime = ctime;
       int ott = (rnd.GetUniform()-0.5) > 0 ? OP_BUYSTOP : OP_SELLSTOP;
       setupPendingOrder(ott);
@@ -267,8 +291,6 @@ void OnTick()
   // nvRemoveObjects(ChartID(),OBJ_HLINE);
   clearLines();
   ChartRedraw();
-
-  double zoneFactor = 1.0;
 
   // Check if we entered a BUY or SELL position:
   int num = OrdersTotal();
@@ -300,9 +322,9 @@ void OnTick()
         logDEBUG("Zone Width="<<zw);
 
         double sp = nvGetSpread(_Symbol);
-        if(zw < (sp+20.0*psize))
+        if(zw < (sp+10.0*psize))
         {
-          zw = sp+20.0*psize;
+          zw = sp+10.0*psize;
           logDEBUG("Adapted zone width to "<<zw)
         }
 
@@ -310,14 +332,14 @@ void OnTick()
         basket.setPositiveBreakEvenWidth(zw*zoneFactor);
         basket.setNegativeBreakEvenWidth(zw*zoneFactor);
         basket.setProfitWidth(10.0*psize);
-        basket.setTakeProfitOffset(5.0*psize);
+        basket.setTakeProfitOffset(0.0*psize);
         basket.setWarningLevel(5);
         basket.setStopLevel(10);
 
         basket.setDecayLevel(8);
-        basket.setTakeProfitDecay(5.0*psize);
+        basket.setTakeProfitDecay(0.0*psize);
 
-        basket.setBreakEvenPoints(zw*zoneFactor);
+        basket.setBreakEvenPoints(zw*zoneFactor/2.0);
         basket.setTrailStep(5.0*psize);
         basket.setSlippage(10);
         
@@ -397,6 +419,26 @@ void OnChartEvent(const int id,         // Event ID
       clearLines();
       basket.close();
     }  
+    if(sparam=="Z+")
+    {
+      zoneFactor += 0.5;
+      zoneFactor = MathMin(zoneFactor,4.0);
+    }  
+    if(sparam=="Z-")
+    {
+      zoneFactor -= 0.5;
+      zoneFactor = MathMax(zoneFactor,1.0);
+    }
+    if(sparam=="L+")
+    {
+      baseLot += 0.1;
+      baseLot = MathMin(baseLot,10.0);
+    }  
+    if(sparam=="L-")
+    {
+      baseLot -= 0.1;
+      baseLot = MathMax(baseLot,0.1);
+    }
 
     if(otype>0)
     {

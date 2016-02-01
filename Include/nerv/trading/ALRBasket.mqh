@@ -271,6 +271,9 @@ public:
 
     addPosition(ticket);
 
+    // Ensure that we don't have any take profit or stop loss for that ticket:
+    CHECK(OrderModify(ticket,OrderOpenPrice(),0.0,0.0,0,clrNONE),"Cannot modify ticket.");
+
     int otype = OrderType();
     CHECK(otype==OP_BUY || otype==OP_SELL,"Invalid order type");
     
@@ -347,8 +350,16 @@ public:
     // We also need to check if we are going under the zone:
     if(bid<=_zoneLow)
     {
-      // flip the current side!
-      openPosition(OP_SELL,getNextLotSize());
+      // If we are in profit, then close this basket:
+      if(getCurrentProfit()>0.0)
+      {
+        close();
+      }
+      else
+      {
+        // flip the current side!
+        openPosition(OP_SELL,getNextLotSize());        
+      }
     }
   }
 
@@ -395,8 +406,16 @@ public:
     // We also need to check if we are going under the zone:
     if(bid>=_zoneHigh)
     {
-      // flip the current side!
-      openPosition(OP_BUY,getNextLotSize());
+      // If we are in profit, then close this basket:
+      if(getCurrentProfit()>0.0)
+      {
+        close();
+      }
+      else
+      {
+        // flip the current side!
+        openPosition(OP_BUY,getNextLotSize());
+      }
     }
   }
 
@@ -408,6 +427,7 @@ public:
     // Check if we should close due to current force take profit value:
     if(_numBounce>1 && _forceTakeProfit>0.0 && (nvGetEquity() - nvGetBalance()) > _forceTakeProfit)
     {
+      logDEBUG("Closing basket for symbol "<<_symbol<<" because of force take profit value.");
       close();
       return;
     }
@@ -432,7 +452,9 @@ public:
     double profit = getCurrentProfit();
 
     logDEBUG("Closing basked of "<<len<<" positions with profit="<<profit)
-    
+      
+    // CHECK(profit>0.0,"Invalid profit value: "<<profit)
+
     // Close the trades in reverse order for a better balance display :-)
     for(int i=0;i<len;++i)
     {
@@ -472,13 +494,17 @@ protected:
   {
     int len = ArraySize(_tickets);
     double result = 0.0;
+    logDEBUG("Computing point profit for target "<<target)
+
+    double value;
     for(int i=0;i<len;++i)
     {
       if(OrderSelect(_tickets[i],SELECT_BY_TICKET))
       {
+
         if(OrderType()==OP_BUY)
         {
-          result += OrderLots()*(target - OrderOpenPrice());
+          value = OrderLots()*(target - OrderOpenPrice());
         }
         else
         {
@@ -488,10 +514,15 @@ protected:
           // mean spread.
           // For the moment we simply use the instant spread:
           double spread = nvGetSpread(_symbol);
-          result += OrderLots()*(OrderOpenPrice() - target - spread) ;
+          value = OrderLots()*(OrderOpenPrice() - target - spread);
         }
+
+        logDEBUG("For ticket "<<i<<", type="<<OrderType()<<", openPrice="<<OrderOpenPrice()<<", value="<<value)
+        result += value;
       }
     }
+
+    logDEBUG("Total point profit="<<result);
 
     return result;
   }
@@ -505,12 +536,16 @@ protected:
 
     setupTargets();
 
+    double spread = nvGetSpread(_symbol);
+    double bid = nvGetBid(_symbol);
+    double ask = nvGetAsk(_symbol);
+
     if(_currentSide==OP_BUY)
     {
       // We are about to go short now
       // So the breakEven price will be:
       target = _zoneLow-_sellTarget;
-      range = nvGetAsk(_symbol) - target;
+      range = bid - target - spread;
 
       // it could happen that we are jumping out of the recovery band
       // sometimes (during the weekends!)
@@ -522,17 +557,17 @@ protected:
 
         // We can try to relocate the zone so that the current bid price 
         // would correspond to the new zoneLow:
-        _zoneLow = nvGetBid(_symbol);
+        _zoneLow = bid;
         _zoneHigh = _zoneLow + _zoneWidth;
 
         // Recompute target and range:
         target = _zoneLow-_sellTarget;
-        range = nvGetAsk(_symbol) - target;
+        range = bid - target - spread;
       }
 
       CHECK_RET(range>0.0,0.0,"Detected invalid SELL range: "<<range);
 
-      np = getPointProfit(target);
+      np = MathMin(getPointProfit(target),0.0);
 
       // Now compute what is missing to break even:
       CHECK_RET(np <= 0,0.0,"Point profit was positive : "<<np);
@@ -555,7 +590,7 @@ protected:
       // We are about to go long now
       // So the breakEven price will be:
       target = _zoneHigh+_buyTarget;
-      range = target - nvGetAsk(_symbol);
+      range = target - ask;
 
       // it could happen that we are jumping out of the recovery band
       // sometimes (during the weekends!)
@@ -567,20 +602,21 @@ protected:
 
         // We can try to relocate the zone so that the current bid price 
         // would correspond to the new zoneHigh:
-        _zoneHigh = nvGetBid(_symbol);
+        _zoneHigh = bid;
         _zoneLow = _zoneHigh - _zoneWidth;
 
         // Recompute target and range:
         target = _zoneHigh+_buyTarget;
-        range = target - nvGetAsk(_symbol);
+        range = target - ask;
       }
-      CHECK_RET(range>0.0,0.0,"Detected invalid BUY range: "<<range
-        <<", target="<<target
-        <<", ask="<<nvGetAsk(_symbol)
-        <<", bid="<<nvGetBid(_symbol));
+      CHECK_RET(range>0.0,0.0,"Detected invalid BUY range: "<<range)
+        // <<", target="<<target
+        // <<", ask="<<nvGetAsk(_symbol)
+        // <<", bid="<<nvGetBid(_symbol));
 
       // Now compute the point profit :
-      np = getPointProfit(target);
+      np = MathMin(getPointProfit(target),0.0);
+
       // Now compute what is missing to break even:
       CHECK_RET(np <= 0,0.0,"Point profit was positive : "<<np);
 
@@ -611,6 +647,12 @@ protected:
 
   int openPosition(int otype, double lot)
   {
+    if(lot<=0.0)
+    {
+      logDEBUG("Discarding openPosition with lot="<<lot);
+      return -1;
+    }
+
     _currentSide = otype;
     int ticket = nvOpenPosition(_symbol,otype,lot,0.0,0.0,0.0,_slippage);
     if(ticket<0)
